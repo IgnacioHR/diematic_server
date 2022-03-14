@@ -1,0 +1,16 @@
+[Unit]
+Description=Diematic daemon capture to InfluxDB and web server
+After=network-up.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=120
+WorkingDirectory=/home/diematic
+PIDFile=/var/run/diematic/diematic.pid
+ExecStart=/home/diematic/venv/bin/python3 /home/diematic/diematicd.py start -c /etc/diematic/diematic.yaml
+ExecStop=/home/diematic/venv/bin/python3 /home/diematic/diematicd.py stop
+ExecReload=/home/diematic/venv/bin/python3 /home/diematic/diematicd.py reload
+
+[Install]
+WantedBy=multi-user.target
