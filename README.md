@@ -5,7 +5,7 @@ Optionally, the values fetched from the boiler are sent to an InfluxDB database.
 Optionally, a RESTful web server is installed and values can be obtained using GET and modified using POST requests.
 
 ![Screenshot](images/web-requests.png?raw=true)
-
+![Screenshot](images/chronograf_screenshot.png?raw=true)
 
 ## Hardware requirements
 

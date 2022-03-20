@@ -80,10 +80,12 @@ class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
 			self._set_error('GET request FAILED. Try http://.../diematic/parameters to obtain the list of known parameter names')
 		if len(pathParts) == 3 and 'parameters' == pathParts[2]:
 			self.send_list()
+		elif len(pathParts) == 3 and 'json' == pathParts[2]:
+			self.send_json()
 		elif len(pathParts) == 4 and 'parameters' == pathParts[2] and pathParts[3] in self.parameter_names:
 			self.send_param(pathParts[3])
 		else:
- 			self._set_error('{path!r} is not a known request'.format(path=self.path))
+			self._set_error('{path!r} is not a known request'.format(path=self.path))
 
 	def do_POST(self):
 		""" updates a value of one parameter in the boiler
@@ -146,3 +148,7 @@ class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
 	def send_param(self, param_name):
 		self._set_headers_json()
 		self.wfile.write(bytes(json.dumps(getattr(self.boiler, param_name)), "utf-8"))
+
+	def send_json(self):
+		self._set_headers_json()
+		self.wfile.write(bytes(self.boiler.toJSON(),"utf-8"))

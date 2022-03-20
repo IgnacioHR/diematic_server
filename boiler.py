@@ -1,4 +1,6 @@
 import logging
+import json
+
 from datetime import datetime
 
 log = logging.getLogger()
@@ -7,7 +9,8 @@ class Boiler:
     """ Class representation of a De Dietrich boiler with capacity to read registers
         :param index: instance of the yaml configuration file
     """
-    def __init__(self, index):
+    def __init__(self, uuid, index):
+        self.uuid = uuid
         self.registers = []
         self.attribute_list = []
         self.index = index
@@ -304,6 +307,7 @@ class Boiler:
 
     def fetch_data(self):
         output = { }
+        output['uuid'] = self.uuid
         for varname in self.attribute_list:
             register = getattr(self, varname)
             if register['influx']:
@@ -314,7 +318,10 @@ class Boiler:
         output = ''
         for varname,value in self.fetch_data().items():
             output += varname + ' = ' + str(value) + "\n"
-        return output    
+        return output
+
+    def toJSON(self):
+        return json.dumps(self.fetch_data())
 
     def set_write_pending(self, varname, newvalue):
         value = getattr(self, varname, None)

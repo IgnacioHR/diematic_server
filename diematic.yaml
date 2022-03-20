@@ -1,0 +1,1093 @@
+logging: critical
+
+# Boiler
+# This identifies the boiler uniquely. In case you have several daemons installed for multiple boilers
+# centralized in the same Home Assistant you might consider using a differnet uuid on each daemon
+boiler:
+    uuid: 1315878b-5e6f-4bf4-8164-f9050c6bfc4c
+
+# Modbus connection parameters
+# The 'register_ranges' indicates the ranges of ids to be read
+# from the device, to avoid reading lots of useless data.
+# All registers ids listed in the 'registers' section below
+# must be included in a range, otherwise they will be ignored.
+modbus:
+    retries: 3
+    unit: 10
+    device: /dev/ttyUSB0
+    timeout: 10
+    baudrate: 9600
+    register_ranges:
+      - [   8,  12]
+      - [  72,  73]
+      - [ 102, 103]
+      - [ 126, 147]
+      - [ 189, 209]
+      - [ 231, 232]
+      - [ 263, 264]
+      - [ 275, 278]
+      - [ 282, 283]
+      - [ 296, 300]
+      - [ 465, 466]
+      - [ 474, 476]
+      - [ 503, 504]
+      - [ 600, 626]
+      - [ 650, 685]
+      - [ 733, 739]
+
+influxdb:
+    host: homeassistant.chiton
+    port: 8086
+    user: diematic
+    password: d1emm4
+    database: diematic
+
+registers:
+    - id: 8
+      name: sum_win
+      type: DiematicOneDecimal
+    - id: 9
+      name: outdoor_anti_freeze
+      type: DiematicOneDecimal
+    - id: 10
+      name: night_mode
+      type: Raw
+    - id: 11
+      name: delay_stop_heating_pump
+      type: Raw
+    - id: 72
+      name: histeresis_a
+      type: DiematicOneDecimal
+    - id: 102
+      name: outdoor_average_temp
+      type: DiematicOneDecimal
+    - id: 126
+      type: bits
+      bits:
+      - monday_a_0730_0800
+      - monday_a_0700_0730
+      - monday_a_0630_0700
+      - monday_a_0600_0630
+      - monday_a_0530_0600
+      - monday_a_0500_0530
+      - monday_a_0430_0500
+      - monday_a_0400_0430
+      - monday_a_0330_0400
+      - monday_a_0300_0330
+      - monday_a_0230_0300
+      - monday_a_0200_0230
+      - monday_a_0130_0200
+      - monday_a_0100_0130
+      - monday_a_0030_0100
+      - monday_a_0000_0030
+    - id: 127
+      type: bits
+      bits:
+      - monday_a_1530_1600
+      - monday_a_1500_1530
+      - monday_a_1430_1500
+      - monday_a_1400_1430
+      - monday_a_1330_1400
+      - monday_a_1300_1330
+      - monday_a_1230_1300
+      - monday_a_1200_1230
+      - monday_a_1130_1200
+      - monday_a_1100_1130
+      - monday_a_1030_1100
+      - monday_a_1000_1030
+      - monday_a_0930_1000
+      - monday_a_0900_0930
+      - monday_a_0830_0900
+      - monday_a_0800_0830
+    - id: 128
+      type: bits
+      bits:
+      - monday_a_2330_0000
+      - monday_a_2300_2330
+      - monday_a_2230_2300
+      - monday_a_2200_2230
+      - monday_a_2130_2200
+      - monday_a_2100_2130
+      - monday_a_2030_2100
+      - monday_a_2000_2030
+      - monday_a_1930_2000
+      - monday_a_1900_1930
+      - monday_a_1830_1900
+      - monday_a_1800_1830
+      - monday_a_1730_1800
+      - monday_a_1700_1730
+      - monday_a_1630_1700
+      - monday_a_1600_1630
+    - id: 129
+      type: bits
+      bits:
+      - tuesday_a_0730_0800
+      - tuesday_a_0700_0730
+      - tuesday_a_0630_0700
+      - tuesday_a_0600_0630
+      - tuesday_a_0530_0600
+      - tuesday_a_0500_0530
+      - tuesday_a_0430_0500
+      - tuesday_a_0400_0430
+      - tuesday_a_0330_0400
+      - tuesday_a_0300_0330
+      - tuesday_a_0230_0300
+      - tuesday_a_0200_0230
+      - tuesday_a_0130_0200
+      - tuesday_a_0100_0130
+      - tuesday_a_0030_0100
+      - tuesday_a_0000_0030
+    - id: 130
+      type: bits
+      bits:
+      - tuesday_a_1530_1600
+      - tuesday_a_1500_1530
+      - tuesday_a_1430_1500
+      - tuesday_a_1400_1430
+      - tuesday_a_1330_1400
+      - tuesday_a_1300_1330
+      - tuesday_a_1230_1300
+      - tuesday_a_1200_1230
+      - tuesday_a_1130_1200
+      - tuesday_a_1100_1130
+      - tuesday_a_1030_1100
+      - tuesday_a_1000_1030
+      - tuesday_a_0930_1000
+      - tuesday_a_0900_0930
+      - tuesday_a_0830_0900
+      - tuesday_a_0800_0830
+    - id: 131
+      type: bits
+      bits:
+      - tuesday_a_2330_0000
+      - tuesday_a_2300_2330
+      - tuesday_a_2230_2300
+      - tuesday_a_2200_2230
+      - tuesday_a_2130_2200
+      - tuesday_a_2100_2130
+      - tuesday_a_2030_2100
+      - tuesday_a_2000_2030
+      - tuesday_a_1930_2000
+      - tuesday_a_1900_1930
+      - tuesday_a_1830_1900
+      - tuesday_a_1800_1830
+      - tuesday_a_1730_1800
+      - tuesday_a_1700_1730
+      - tuesday_a_1630_1700
+      - tuesday_a_1600_1630
+    - id: 132
+      type: bits
+      bits:
+      - wednesday_a_0730_0800
+      - wednesday_a_0700_0730
+      - wednesday_a_0630_0700
+      - wednesday_a_0600_0630
+      - wednesday_a_0530_0600
+      - wednesday_a_0500_0530
+      - wednesday_a_0430_0500
+      - wednesday_a_0400_0430
+      - wednesday_a_0330_0400
+      - wednesday_a_0300_0330
+      - wednesday_a_0230_0300
+      - wednesday_a_0200_0230
+      - wednesday_a_0130_0200
+      - wednesday_a_0100_0130
+      - wednesday_a_0030_0100
+      - wednesday_a_0000_0030
+    - id: 133
+      type: bits
+      bits:
+      - wednesday_a_1530_1600
+      - wednesday_a_1500_1530
+      - wednesday_a_1430_1500
+      - wednesday_a_1400_1430
+      - wednesday_a_1330_1400
+      - wednesday_a_1300_1330
+      - wednesday_a_1230_1300
+      - wednesday_a_1200_1230
+      - wednesday_a_1130_1200
+      - wednesday_a_1100_1130
+      - wednesday_a_1030_1100
+      - wednesday_a_1000_1030
+      - wednesday_a_0930_1000
+      - wednesday_a_0900_0930
+      - wednesday_a_0830_0900
+      - wednesday_a_0800_0830
+    - id: 134
+      type: bits
+      bits:
+      - wednesday_a_2330_0000
+      - wednesday_a_2300_2330
+      - wednesday_a_2230_2300
+      - wednesday_a_2200_2230
+      - wednesday_a_2130_2200
+      - wednesday_a_2100_2130
+      - wednesday_a_2030_2100
+      - wednesday_a_2000_2030
+      - wednesday_a_1930_2000
+      - wednesday_a_1900_1930
+      - wednesday_a_1830_1900
+      - wednesday_a_1800_1830
+      - wednesday_a_1730_1800
+      - wednesday_a_1700_1730
+      - wednesday_a_1630_1700
+      - wednesday_a_1600_1630
+    - id: 135
+      type: bits
+      bits:
+      - thursday_a_0730_0800
+      - thursday_a_0700_0730
+      - thursday_a_0630_0700
+      - thursday_a_0600_0630
+      - thursday_a_0530_0600
+      - thursday_a_0500_0530
+      - thursday_a_0430_0500
+      - thursday_a_0400_0430
+      - thursday_a_0330_0400
+      - thursday_a_0300_0330
+      - thursday_a_0230_0300
+      - thursday_a_0200_0230
+      - thursday_a_0130_0200
+      - thursday_a_0100_0130
+      - thursday_a_0030_0100
+      - thursday_a_0000_0030
+    - id: 136
+      type: bits
+      bits:
+      - thursday_a_1530_1600
+      - thursday_a_1500_1530
+      - thursday_a_1430_1500
+      - thursday_a_1400_1430
+      - thursday_a_1330_1400
+      - thursday_a_1300_1330
+      - thursday_a_1230_1300
+      - thursday_a_1200_1230
+      - thursday_a_1130_1200
+      - thursday_a_1100_1130
+      - thursday_a_1030_1100
+      - thursday_a_1000_1030
+      - thursday_a_0930_1000
+      - thursday_a_0900_0930
+      - thursday_a_0830_0900
+      - thursday_a_0800_0830
+    - id: 137
+      type: bits
+      bits:
+      - thursday_a_2330_0000
+      - thursday_a_2300_2330
+      - thursday_a_2230_2300
+      - thursday_a_2200_2230
+      - thursday_a_2130_2200
+      - thursday_a_2100_2130
+      - thursday_a_2030_2100
+      - thursday_a_2000_2030
+      - thursday_a_1930_2000
+      - thursday_a_1900_1930
+      - thursday_a_1830_1900
+      - thursday_a_1800_1830
+      - thursday_a_1730_1800
+      - thursday_a_1700_1730
+      - thursday_a_1630_1700
+      - thursday_a_1600_1630
+    - id: 138
+      type: bits
+      bits:
+      - friday_a_0730_0800
+      - friday_a_0700_0730
+      - friday_a_0630_0700
+      - friday_a_0600_0630
+      - friday_a_0530_0600
+      - friday_a_0500_0530
+      - friday_a_0430_0500
+      - friday_a_0400_0430
+      - friday_a_0330_0400
+      - friday_a_0300_0330
+      - friday_a_0230_0300
+      - friday_a_0200_0230
+      - friday_a_0130_0200
+      - friday_a_0100_0130
+      - friday_a_0030_0100
+      - friday_a_0000_0030
+    - id: 139
+      type: bits
+      bits:
+      - friday_a_1530_1600
+      - friday_a_1500_1530
+      - friday_a_1430_1500
+      - friday_a_1400_1430
+      - friday_a_1330_1400
+      - friday_a_1300_1330
+      - friday_a_1230_1300
+      - friday_a_1200_1230
+      - friday_a_1130_1200
+      - friday_a_1100_1130
+      - friday_a_1030_1100
+      - friday_a_1000_1030
+      - friday_a_0930_1000
+      - friday_a_0900_0930
+      - friday_a_0830_0900
+      - friday_a_0800_0830
+    - id: 140
+      type: bits
+      bits:
+      - friday_a_2330_0000
+      - friday_a_2300_2330
+      - friday_a_2230_2300
+      - friday_a_2200_2230
+      - friday_a_2130_2200
+      - friday_a_2100_2130
+      - friday_a_2030_2100
+      - friday_a_2000_2030
+      - friday_a_1930_2000
+      - friday_a_1900_1930
+      - friday_a_1830_1900
+      - friday_a_1800_1830
+      - friday_a_1730_1800
+      - friday_a_1700_1730
+      - friday_a_1630_1700
+      - friday_a_1600_1630
+    - id: 141
+      type: bits
+      bits:
+      - saturday_a_0730_0800
+      - saturday_a_0700_0730
+      - saturday_a_0630_0700
+      - saturday_a_0600_0630
+      - saturday_a_0530_0600
+      - saturday_a_0500_0530
+      - saturday_a_0430_0500
+      - saturday_a_0400_0430
+      - saturday_a_0330_0400
+      - saturday_a_0300_0330
+      - saturday_a_0230_0300
+      - saturday_a_0200_0230
+      - saturday_a_0130_0200
+      - saturday_a_0100_0130
+      - saturday_a_0030_0100
+      - saturday_a_0000_0030
+    - id: 142
+      type: bits
+      bits:
+      - saturday_a_1530_1600
+      - saturday_a_1500_1530
+      - saturday_a_1430_1500
+      - saturday_a_1400_1430
+      - saturday_a_1330_1400
+      - saturday_a_1300_1330
+      - saturday_a_1230_1300
+      - saturday_a_1200_1230
+      - saturday_a_1130_1200
+      - saturday_a_1100_1130
+      - saturday_a_1030_1100
+      - saturday_a_1000_1030
+      - saturday_a_0930_1000
+      - saturday_a_0900_0930
+      - saturday_a_0830_0900
+      - saturday_a_0800_0830
+    - id: 143
+      type: bits
+      bits:
+      - saturday_a_2330_0000
+      - saturday_a_2300_2330
+      - saturday_a_2230_2300
+      - saturday_a_2200_2230
+      - saturday_a_2130_2200
+      - saturday_a_2100_2130
+      - saturday_a_2030_2100
+      - saturday_a_2000_2030
+      - saturday_a_1930_2000
+      - saturday_a_1900_1930
+      - saturday_a_1830_1900
+      - saturday_a_1800_1830
+      - saturday_a_1730_1800
+      - saturday_a_1700_1730
+      - saturday_a_1630_1700
+      - saturday_a_1600_1630
+    - id: 144
+      type: bits
+      bits:
+      - sunday_a_0730_0800
+      - sunday_a_0700_0730
+      - sunday_a_0630_0700
+      - sunday_a_0600_0630
+      - sunday_a_0530_0600
+      - sunday_a_0500_0530
+      - sunday_a_0430_0500
+      - sunday_a_0400_0430
+      - sunday_a_0330_0400
+      - sunday_a_0300_0330
+      - sunday_a_0230_0300
+      - sunday_a_0200_0230
+      - sunday_a_0130_0200
+      - sunday_a_0100_0130
+      - sunday_a_0030_0100
+      - sunday_a_0000_0030
+    - id: 145
+      type: bits
+      bits:
+      - sunday_a_1530_1600
+      - sunday_a_1500_1530
+      - sunday_a_1430_1500
+      - sunday_a_1400_1430
+      - sunday_a_1330_1400
+      - sunday_a_1300_1330
+      - sunday_a_1230_1300
+      - sunday_a_1200_1230
+      - sunday_a_1130_1200
+      - sunday_a_1100_1130
+      - sunday_a_1030_1100
+      - sunday_a_1000_1030
+      - sunday_a_0930_1000
+      - sunday_a_0900_0930
+      - sunday_a_0830_0900
+      - sunday_a_0800_0830
+    - id: 146
+      type: bits
+      bits:
+      - sunday_a_2330_0000
+      - sunday_a_2300_2330
+      - sunday_a_2230_2300
+      - sunday_a_2200_2230
+      - sunday_a_2130_2200
+      - sunday_a_2100_2130
+      - sunday_a_2030_2100
+      - sunday_a_2000_2030
+      - sunday_a_1930_2000
+      - sunday_a_1900_1930
+      - sunday_a_1830_1900
+      - sunday_a_1800_1830
+      - sunday_a_1730_1800
+      - sunday_a_1700_1730
+      - sunday_a_1630_1700
+      - sunday_a_1600_1630
+    - id: 189
+      type: bits
+      bits:
+      - monday_acs_0730_0800
+      - monday_acs_0700_0730
+      - monday_acs_0630_0700
+      - monday_acs_0600_0630
+      - monday_acs_0530_0600
+      - monday_acs_0500_0530
+      - monday_acs_0430_0500
+      - monday_acs_0400_0430
+      - monday_acs_0330_0400
+      - monday_acs_0300_0330
+      - monday_acs_0230_0300
+      - monday_acs_0200_0230
+      - monday_acs_0130_0200
+      - monday_acs_0100_0130
+      - monday_acs_0030_0100
+      - monday_acs_0000_0030
+    - id: 190
+      type: bits
+      bits:
+      - monday_acs_1530_1600
+      - monday_acs_1500_1530
+      - monday_acs_1430_1500
+      - monday_acs_1400_1430
+      - monday_acs_1330_1400
+      - monday_acs_1300_1330
+      - monday_acs_1230_1300
+      - monday_acs_1200_1230
+      - monday_acs_1130_1200
+      - monday_acs_1100_1130
+      - monday_acs_1030_1100
+      - monday_acs_1000_1030
+      - monday_acs_0930_1000
+      - monday_acs_0900_0930
+      - monday_acs_0830_0900
+      - monday_acs_0800_0830
+    - id: 191
+      type: bits
+      bits:
+      - monday_acs_2330_0000
+      - monday_acs_2300_2330
+      - monday_acs_2230_2300
+      - monday_acs_2200_2230
+      - monday_acs_2130_2200
+      - monday_acs_2100_2130
+      - monday_acs_2030_2100
+      - monday_acs_2000_2030
+      - monday_acs_1930_2000
+      - monday_acs_1900_1930
+      - monday_acs_1830_1900
+      - monday_acs_1800_1830
+      - monday_acs_1730_1800
+      - monday_acs_1700_1730
+      - monday_acs_1630_1700
+      - monday_acs_1600_1630
+    - id: 192
+      type: bits
+      bits:
+      - tuesday_acs_0730_0800
+      - tuesday_acs_0700_0730
+      - tuesday_acs_0630_0700
+      - tuesday_acs_0600_0630
+      - tuesday_acs_0530_0600
+      - tuesday_acs_0500_0530
+      - tuesday_acs_0430_0500
+      - tuesday_acs_0400_0430
+      - tuesday_acs_0330_0400
+      - tuesday_acs_0300_0330
+      - tuesday_acs_0230_0300
+      - tuesday_acs_0200_0230
+      - tuesday_acs_0130_0200
+      - tuesday_acs_0100_0130
+      - tuesday_acs_0030_0100
+      - tuesday_acs_0000_0030
+    - id: 193
+      type: bits
+      bits:
+      - tuesday_acs_1530_1600
+      - tuesday_acs_1500_1530
+      - tuesday_acs_1430_1500
+      - tuesday_acs_1400_1430
+      - tuesday_acs_1330_1400
+      - tuesday_acs_1300_1330
+      - tuesday_acs_1230_1300
+      - tuesday_acs_1200_1230
+      - tuesday_acs_1130_1200
+      - tuesday_acs_1100_1130
+      - tuesday_acs_1030_1100
+      - tuesday_acs_1000_1030
+      - tuesday_acs_0930_1000
+      - tuesday_acs_0900_0930
+      - tuesday_acs_0830_0900
+      - tuesday_acs_0800_0830
+    - id: 194
+      type: bits
+      bits:
+      - tuesday_acs_2330_0000
+      - tuesday_acs_2300_2330
+      - tuesday_acs_2230_2300
+      - tuesday_acs_2200_2230
+      - tuesday_acs_2130_2200
+      - tuesday_acs_2100_2130
+      - tuesday_acs_2030_2100
+      - tuesday_acs_2000_2030
+      - tuesday_acs_1930_2000
+      - tuesday_acs_1900_1930
+      - tuesday_acs_1830_1900
+      - tuesday_acs_1800_1830
+      - tuesday_acs_1730_1800
+      - tuesday_acs_1700_1730
+      - tuesday_acs_1630_1700
+      - tuesday_acs_1600_1630
+    - id: 195
+      type: bits
+      bits:
+      - wednesday_acs_0730_0800
+      - wednesday_acs_0700_0730
+      - wednesday_acs_0630_0700
+      - wednesday_acs_0600_0630
+      - wednesday_acs_0530_0600
+      - wednesday_acs_0500_0530
+      - wednesday_acs_0430_0500
+      - wednesday_acs_0400_0430
+      - wednesday_acs_0330_0400
+      - wednesday_acs_0300_0330
+      - wednesday_acs_0230_0300
+      - wednesday_acs_0200_0230
+      - wednesday_acs_0130_0200
+      - wednesday_acs_0100_0130
+      - wednesday_acs_0030_0100
+      - wednesday_acs_0000_0030
+    - id: 196
+      type: bits
+      bits:
+      - wednesday_acs_1530_1600
+      - wednesday_acs_1500_1530
+      - wednesday_acs_1430_1500
+      - wednesday_acs_1400_1430
+      - wednesday_acs_1330_1400
+      - wednesday_acs_1300_1330
+      - wednesday_acs_1230_1300
+      - wednesday_acs_1200_1230
+      - wednesday_acs_1130_1200
+      - wednesday_acs_1100_1130
+      - wednesday_acs_1030_1100
+      - wednesday_acs_1000_1030
+      - wednesday_acs_0930_1000
+      - wednesday_acs_0900_0930
+      - wednesday_acs_0830_0900
+      - wednesday_acs_0800_0830
+    - id: 197
+      type: bits
+      bits:
+      - wednesday_acs_2330_0000
+      - wednesday_acs_2300_2330
+      - wednesday_acs_2230_2300
+      - wednesday_acs_2200_2230
+      - wednesday_acs_2130_2200
+      - wednesday_acs_2100_2130
+      - wednesday_acs_2030_2100
+      - wednesday_acs_2000_2030
+      - wednesday_acs_1930_2000
+      - wednesday_acs_1900_1930
+      - wednesday_acs_1830_1900
+      - wednesday_acs_1800_1830
+      - wednesday_acs_1730_1800
+      - wednesday_acs_1700_1730
+      - wednesday_acs_1630_1700
+      - wednesday_acs_1600_1630
+    - id: 198
+      type: bits
+      bits:
+      - thursday_acs_0730_0800
+      - thursday_acs_0700_0730
+      - thursday_acs_0630_0700
+      - thursday_acs_0600_0630
+      - thursday_acs_0530_0600
+      - thursday_acs_0500_0530
+      - thursday_acs_0430_0500
+      - thursday_acs_0400_0430
+      - thursday_acs_0330_0400
+      - thursday_acs_0300_0330
+      - thursday_acs_0230_0300
+      - thursday_acs_0200_0230
+      - thursday_acs_0130_0200
+      - thursday_acs_0100_0130
+      - thursday_acs_0030_0100
+      - thursday_acs_0000_0030
+    - id: 199
+      type: bits
+      bits:
+      - thursday_acs_1530_1600
+      - thursday_acs_1500_1530
+      - thursday_acs_1430_1500
+      - thursday_acs_1400_1430
+      - thursday_acs_1330_1400
+      - thursday_acs_1300_1330
+      - thursday_acs_1230_1300
+      - thursday_acs_1200_1230
+      - thursday_acs_1130_1200
+      - thursday_acs_1100_1130
+      - thursday_acs_1030_1100
+      - thursday_acs_1000_1030
+      - thursday_acs_0930_1000
+      - thursday_acs_0900_0930
+      - thursday_acs_0830_0900
+      - thursday_acs_0800_0830
+    - id: 200
+      type: bits
+      bits:
+      - thursday_acs_2330_0000
+      - thursday_acs_2300_2330
+      - thursday_acs_2230_2300
+      - thursday_acs_2200_2230
+      - thursday_acs_2130_2200
+      - thursday_acs_2100_2130
+      - thursday_acs_2030_2100
+      - thursday_acs_2000_2030
+      - thursday_acs_1930_2000
+      - thursday_acs_1900_1930
+      - thursday_acs_1830_1900
+      - thursday_acs_1800_1830
+      - thursday_acs_1730_1800
+      - thursday_acs_1700_1730
+      - thursday_acs_1630_1700
+      - thursday_acs_1600_1630
+    - id: 201
+      type: bits
+      bits:
+      - friday_acs_0730_0800
+      - friday_acs_0700_0730
+      - friday_acs_0630_0700
+      - friday_acs_0600_0630
+      - friday_acs_0530_0600
+      - friday_acs_0500_0530
+      - friday_acs_0430_0500
+      - friday_acs_0400_0430
+      - friday_acs_0330_0400
+      - friday_acs_0300_0330
+      - friday_acs_0230_0300
+      - friday_acs_0200_0230
+      - friday_acs_0130_0200
+      - friday_acs_0100_0130
+      - friday_acs_0030_0100
+      - friday_acs_0000_0030
+    - id: 202
+      type: bits
+      bits:
+      - friday_acs_1530_1600
+      - friday_acs_1500_1530
+      - friday_acs_1430_1500
+      - friday_acs_1400_1430
+      - friday_acs_1330_1400
+      - friday_acs_1300_1330
+      - friday_acs_1230_1300
+      - friday_acs_1200_1230
+      - friday_acs_1130_1200
+      - friday_acs_1100_1130
+      - friday_acs_1030_1100
+      - friday_acs_1000_1030
+      - friday_acs_0930_1000
+      - friday_acs_0900_0930
+      - friday_acs_0830_0900
+      - friday_acs_0800_0830
+    - id: 203
+      type: bits
+      bits:
+      - friday_acs_2330_0000
+      - friday_acs_2300_2330
+      - friday_acs_2230_2300
+      - friday_acs_2200_2230
+      - friday_acs_2130_2200
+      - friday_acs_2100_2130
+      - friday_acs_2030_2100
+      - friday_acs_2000_2030
+      - friday_acs_1930_2000
+      - friday_acs_1900_1930
+      - friday_acs_1830_1900
+      - friday_acs_1800_1830
+      - friday_acs_1730_1800
+      - friday_acs_1700_1730
+      - friday_acs_1630_1700
+      - friday_acs_1600_1630
+    - id: 204
+      type: bits
+      bits:
+      - saturday_acs_0730_0800
+      - saturday_acs_0700_0730
+      - saturday_acs_0630_0700
+      - saturday_acs_0600_0630
+      - saturday_acs_0530_0600
+      - saturday_acs_0500_0530
+      - saturday_acs_0430_0500
+      - saturday_acs_0400_0430
+      - saturday_acs_0330_0400
+      - saturday_acs_0300_0330
+      - saturday_acs_0230_0300
+      - saturday_acs_0200_0230
+      - saturday_acs_0130_0200
+      - saturday_acs_0100_0130
+      - saturday_acs_0030_0100
+      - saturday_acs_0000_0030
+    - id: 205
+      type: bits
+      bits:
+      - saturday_acs_1530_1600
+      - saturday_acs_1500_1530
+      - saturday_acs_1430_1500
+      - saturday_acs_1400_1430
+      - saturday_acs_1330_1400
+      - saturday_acs_1300_1330
+      - saturday_acs_1230_1300
+      - saturday_acs_1200_1230
+      - saturday_acs_1130_1200
+      - saturday_acs_1100_1130
+      - saturday_acs_1030_1100
+      - saturday_acs_1000_1030
+      - saturday_acs_0930_1000
+      - saturday_acs_0900_0930
+      - saturday_acs_0830_0900
+      - saturday_acs_0800_0830
+    - id: 206
+      type: bits
+      bits:
+      - saturday_acs_2330_0000
+      - saturday_acs_2300_2330
+      - saturday_acs_2230_2300
+      - saturday_acs_2200_2230
+      - saturday_acs_2130_2200
+      - saturday_acs_2100_2130
+      - saturday_acs_2030_2100
+      - saturday_acs_2000_2030
+      - saturday_acs_1930_2000
+      - saturday_acs_1900_1930
+      - saturday_acs_1830_1900
+      - saturday_acs_1800_1830
+      - saturday_acs_1730_1800
+      - saturday_acs_1700_1730
+      - saturday_acs_1630_1700
+      - saturday_acs_1600_1630
+    - id: 207
+      type: bits
+      bits:
+      - sunday_acs_0730_0800
+      - sunday_acs_0700_0730
+      - sunday_acs_0630_0700
+      - sunday_acs_0600_0630
+      - sunday_acs_0530_0600
+      - sunday_acs_0500_0530
+      - sunday_acs_0430_0500
+      - sunday_acs_0400_0430
+      - sunday_acs_0330_0400
+      - sunday_acs_0300_0330
+      - sunday_acs_0230_0300
+      - sunday_acs_0200_0230
+      - sunday_acs_0130_0200
+      - sunday_acs_0100_0130
+      - sunday_acs_0030_0100
+      - sunday_acs_0000_0030
+    - id: 208
+      type: bits
+      bits:
+      - sunday_acs_1530_1600
+      - sunday_acs_1500_1530
+      - sunday_acs_1430_1500
+      - sunday_acs_1400_1430
+      - sunday_acs_1330_1400
+      - sunday_acs_1300_1330
+      - sunday_acs_1230_1300
+      - sunday_acs_1200_1230
+      - sunday_acs_1130_1200
+      - sunday_acs_1100_1130
+      - sunday_acs_1030_1100
+      - sunday_acs_1000_1030
+      - sunday_acs_0930_1000
+      - sunday_acs_0900_0930
+      - sunday_acs_0830_0900
+      - sunday_acs_0800_0830
+    - id: 209
+      type: bits
+      bits:
+      - sunday_acs_2330_0000
+      - sunday_acs_2300_2330
+      - sunday_acs_2230_2300
+      - sunday_acs_2200_2230
+      - sunday_acs_2130_2200
+      - sunday_acs_2100_2130
+      - sunday_acs_2030_2100
+      - sunday_acs_2000_2030
+      - sunday_acs_1930_2000
+      - sunday_acs_1900_1930
+      - sunday_acs_1830_1900
+      - sunday_acs_1800_1830
+      - sunday_acs_1730_1800
+      - sunday_acs_1700_1730
+      - sunday_acs_1630_1700
+      - sunday_acs_1600_1630
+    - id: 231
+      name: current_prog_a
+      type: DiematicProgram
+    - id: 263
+      name: language
+      type: Raw
+    - id: 275
+      name: cal_temp_room_a
+      type: DiematicOneDecimal
+    - id: 276
+      name: cal_temp_room_b
+      type: DiematicOneDecimal
+    - id: 277
+      name: cal_temp_room_c
+      type: DiematicOneDecimal
+    - id: 282
+      name: anticip_a
+      type: DiematicOneDecimal
+    - id: 296
+      name: circ_a_type
+      type: DiematicCircType
+    - id: 298
+      name: temperature_min_circuit_a
+      type: DiematicOneDecimal
+    - id: 299
+      name: temperature_max_circuit_a
+      type: DiematicOneDecimal
+    - id: 465
+      name: error
+      type: ErrorCode
+    - id: 474
+      type: bits
+      bits:
+          - io_burner_1_1
+          - io_burder_1_2
+          - io_hydraulic_valve_open
+          - io_hydraulic_valve_close
+          - io_boiler_pump
+    - id: 475
+      type: bits
+      bits:
+          - io_dhw_pump_on
+          - io_circ_a_pump_on
+          - io_circ_a_3wv_open
+          - io_circ_a_3wv_close
+          - io_circ_b_pump_on
+          - io_circ_b_3wv_open
+          - io_circ_b_3wv_close
+          - io_circ_c_pump_on
+          - io_circ_c_3wv_open
+          - io_circ_c_3wv_close
+          - io_aux_pump_1_on
+          - io_aux_pump_2_on
+          - io_aux_pump_3_on
+          - io_phone_output
+    - id: 503
+      name: power
+      type: Raw
+    - id: 600
+      name: software_version
+      type: Raw
+      influx: no
+    - id: 601
+      name: temperature_external
+      type: DiematicOneDecimal
+    - id: 602
+      name: temperature_boiler
+      type: DiematicOneDecimal
+    - id: 603
+      name: temperature_tank
+      type: DiematicOneDecimal
+    - id: 605
+      name: temperature_circuit_b
+      type: DiematicOneDecimal
+    - id: 606
+      name: temperature_circuit_c
+      type: DiematicOneDecimal
+    - id: 607
+      name: temperature_retour_aux
+      type: DiematicOneDecimal
+    - id: 608
+      name: current
+      type: DiematicOneDecimal
+    - id: 609
+      name: fan_speed
+      type: Raw
+    - id: 610
+      name: pressure
+      type: DiematicOneDecimal
+    - id: 611
+      name: temperature_mes_bal_solaire
+      type: DiematicOneDecimal
+    - id: 612
+      name: temperature_mes_solaire
+      type: DiematicOneDecimal
+    - id: 614
+      name: temperature_room_circuit_a
+      type: DiematicOneDecimal
+    - id: 615
+      name: temperature_room_circuit_a_calcule
+      type: DiematicOneDecimal
+    - id: 616
+      name: temperature_room_circuit_b
+      type: DiematicOneDecimal
+    - id: 617
+      name: temperature_room_circuit_b_calcule
+      type: DiematicOneDecimal
+    - id: 618
+      name: temperature_room_circuit_c
+      type: DiematicOneDecimal
+    - id: 619
+      name: temperature_room_circuit_c_calcule
+      type: DiematicOneDecimal
+    - id: 620
+      name: temperature_chaud_calcule
+      type: DiematicOneDecimal
+    - id: 621
+      name: temperature_outlet_a
+      type: DiematicOneDecimal
+    - id: 622
+      name: temperature_aux_1
+      type: DiematicOneDecimal
+    - id: 623
+      name: temperature_aux_2
+      type: DiematicOneDecimal
+    - id: 624
+      name: temperature_univ
+      type: DiematicOneDecimal
+    - id: 625
+      name: temperature_exchange
+      type: DiematicOneDecimal
+    - id: 650
+      name: temp_dia_a
+      type: DiematicOneDecimal
+    - id: 651
+      name: temp_noche_a
+      type: DiematicOneDecimal
+    - id: 652
+      name: temp_antihielo_a
+      type: DiematicOneDecimal
+    - id: 653
+      type: bits
+      bits:
+          - io_dgt_a_antifreeze
+          - io_dgt_a_night
+          - io_dgt_a_day
+          - io_dgt_a_auto
+          - io_unused
+          - io_dgt_a_type
+    - id: 655
+      name: slope_heat_curve_circ_a
+      type: DiematicOneDecimal
+    - id: 656
+      name: temp_dia_b
+      type: DiematicOneDecimal
+    - id: 657
+      name: temp_noche_b
+      type: DiematicOneDecimal
+    - id: 658
+      name: temp_antihielo_b
+      type: DiematicOneDecimal
+    - id: 662
+      name: temperature_min_circuit_b
+      type: DiematicOneDecimal
+    - id: 663
+      name: temperature_max_circuit_b
+      type: DiematicOneDecimal
+    - id: 664
+      name: temp_dia_c
+      type: DiematicOneDecimal
+    - id: 665
+      name: temp_noche_c
+      type: DiematicOneDecimal
+    - id: 666
+      name: temp_antihielo_c
+      type: DiematicOneDecimal
+    - id: 672
+      name: temp_dia_acs
+      type: DiematicOneDecimal
+    - id: 673
+      name: temp_noche_acs
+      type: DiematicOneDecimal
+    - id: 674
+      name: priority_acs
+      type: DiematicOneDecimal
+    - id: 679
+      name: hour
+      type: Raw
+    - id: 680
+      name: minute
+      type: Raw
+    - id: 681
+      name: day_of_week
+      type: Raw
+    - id: 682
+      name: date
+      type: Raw
+    - id: 683
+      name: month
+      type: Raw
+    - id: 684
+      name: year
+      type: Raw
+    - id: 733
+      name: temp_dep_casc
+      type: DiematicOneDecimal
+    - id: 734
+      name: temp_calc_second
+      type: DiematicOneDecimal
+    - id: 735
+      type: bits
+      bits:
+          - io_unused
+          - io_direct_circuit_off
+          - io_direct_circuit_3wv_off
+          - io_secondary_pump
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_unused
+          - io_cascade_failure
+    - id: 738
+      name: decal_a
+      type: DiematicOneDecimal
+

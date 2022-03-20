@@ -218,7 +218,7 @@ class DiematicApp:
 
     def _create_boiler(self):
         if self.shall_create_boiler:
-            self.MyBoiler = Boiler(index=self.cfg['registers'])
+            self.MyBoiler = Boiler(uuid=self.cfg['boiler']['uuid'], index=self.cfg['registers'])
             self.shall_create_boiler = False
 
     def do_main_program(self):
