@@ -25,7 +25,7 @@ modbus:
       - [ 189, 209]
       - [ 231, 232]
       - [ 263, 264]
-      - [ 275, 278]
+      - [ 274, 278]
       - [ 282, 283]
       - [ 296, 300]
       - [ 465, 466]
@@ -39,7 +39,7 @@ influxdb:
     host: homeassistant.chiton
     port: 8086
     user: diematic
-    password: d1emm4
+    password: ********
     database: diematic
 
 registers:
@@ -865,6 +865,9 @@ registers:
     - id: 263
       name: language
       type: Raw
+    - id: 274
+      name: cal_temp_ext
+      type: DiematicOneDecimal
     - id: 275
       name: cal_temp_room_a
       type: DiematicOneDecimal
