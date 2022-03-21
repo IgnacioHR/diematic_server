@@ -39,7 +39,7 @@ influxdb:
     host: homeassistant.chiton
     port: 8086
     user: diematic
-    password: ********
+    password: d*******
     database: diematic
 
 registers:
@@ -932,6 +932,9 @@ registers:
       type: DiematicOneDecimal
     - id: 603
       name: temperature_tank
+      type: DiematicOneDecimal
+    - id: 604
+      name: temperature_smoke
       type: DiematicOneDecimal
     - id: 605
       name: temperature_circuit_b
