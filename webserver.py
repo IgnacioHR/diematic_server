@@ -82,6 +82,8 @@ class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
 			self.send_list()
 		elif len(pathParts) == 3 and 'json' == pathParts[2]:
 			self.send_json()
+		elif len(pathParts) == 3 and 'config' == pathParts[2]:
+			self.send_config()
 		elif len(pathParts) == 4 and 'parameters' == pathParts[2] and pathParts[3] in self.parameter_names:
 			self.send_param(pathParts[3])
 		else:
@@ -152,3 +154,7 @@ class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
 	def send_json(self):
 		self._set_headers_json()
 		self.wfile.write(bytes(self.boiler.toJSON(),"utf-8"))
+
+	def send_config(self):
+		self._set_headers_json()
+		self.wfile.write(bytes(self.app.toJSON(),"utf-8"))

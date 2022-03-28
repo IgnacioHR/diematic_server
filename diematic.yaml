@@ -46,6 +46,9 @@ registers:
     - id: 8
       name: sum_win
       type: DiematicOneDecimal
+      desc: Summer/Winter temperature set point
+      unit: CelsiusTemperature
+      ha: true
     - id: 9
       name: outdoor_anti_freeze
       type: DiematicOneDecimal
@@ -871,6 +874,9 @@ registers:
     - id: 275
       name: cal_temp_room_a
       type: DiematicOneDecimal
+      desc: Circuit A calibration offset
+      unit: CelsiusTemperature
+      ha: true
     - id: 276
       name: cal_temp_room_b
       type: DiematicOneDecimal
@@ -927,15 +933,18 @@ registers:
     - id: 601
       name: temperature_external
       type: DiematicOneDecimal
+      desc: External temperature
+      unit: CelsiusTemperature
+      ha: true
     - id: 602
       name: temperature_boiler
       type: DiematicOneDecimal
     - id: 603
       name: temperature_tank
       type: DiematicOneDecimal
-    - id: 604
-      name: temperature_smoke
-      type: DiematicOneDecimal
+    # - id: 604
+    #   name: temperature_smoke
+    #   type: DiematicOneDecimal
     - id: 605
       name: temperature_circuit_b
       type: DiematicOneDecimal
@@ -951,9 +960,9 @@ registers:
     - id: 609
       name: fan_speed
       type: Raw
-    - id: 610
-      name: pressure
-      type: DiematicOneDecimal
+    # - id: 610
+    #   name: pressure
+    #   type: DiematicOneDecimal
     - id: 611
       name: temperature_mes_bal_solaire
       type: DiematicOneDecimal
@@ -963,6 +972,9 @@ registers:
     - id: 614
       name: temperature_room_circuit_a
       type: DiematicOneDecimal
+      desc: Circuit A temperature
+      unit: CelsiusTemperature
+      ha: true
     - id: 615
       name: temperature_room_circuit_a_calcule
       type: DiematicOneDecimal
@@ -999,9 +1011,15 @@ registers:
     - id: 650
       name: temp_dia_a
       type: DiematicOneDecimal
+      desc: Confort period target temperature circuit A
+      unit: CelsiusTemperature
+      ha: true
     - id: 651
       name: temp_noche_a
       type: DiematicOneDecimal
+      desc: Non-confort period target temperature circuit A
+      unit: CelsiusTemperature
+      ha: true
     - id: 652
       name: temp_antihielo_a
       type: DiematicOneDecimal
@@ -1044,9 +1062,15 @@ registers:
     - id: 672
       name: temp_dia_acs
       type: DiematicOneDecimal
+      desc: Confort period target temperature ACS
+      unit: CelsiusTemperature
+      ha: true
     - id: 673
       name: temp_noche_acs
       type: DiematicOneDecimal
+      desc: Non-confort period target temperature ACS
+      unit: CelsiusTemperature
+      ha: true
     - id: 674
       name: priority_acs
       type: DiematicOneDecimal

@@ -9,6 +9,7 @@ See and respect licensing terms
 """
 import logging
 import yaml
+import json
 import os
 import signal
 import time
@@ -306,6 +307,10 @@ class DiematicApp:
         with open(config_file) as f:
             # use safe_load instead load
             self.cfg = yaml.safe_load(f)
+
+    def toJSON(self):
+        """Return the configuration file in json format"""
+        return json.dumps(self.cfg["registers"])
 
     def set_logging_level(self):
         # --------------------------------------------------------------------------- #
