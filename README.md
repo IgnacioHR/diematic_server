@@ -1,6 +1,7 @@
 # diematic
 
 A Unix service written in Python to monitor De Dietrich boiler equiped with Diematic system using Modbus RS-845 protocol.
+The service reads data from the boiler and makes it available to be consumed in two ways:
 Optionally, the values fetched from the boiler are sent to an InfluxDB database.
 Optionally, a RESTful web server is installed and values can be obtained using GET and modified using POST requests.
 
