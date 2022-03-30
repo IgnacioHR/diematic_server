@@ -1,15 +1,22 @@
+# coding=UTF-8
 """Setup for the pipy package"""
-from distutils.core import setup
-setup(
+import setuptools
+
+with open('README.md', 'r', encoding='utf-8') as long_description_f:
+	long_description = long_description_f.read()
+
+setuptools.setup(
   name = 'diematic-server',
-  packages = ['diematic-server'],
   version = '1.0',
-  license='MIT',
-  description = 'Unix daemon and supporting models for publshing data from Diematic DeDietrich boiler',
+  description = 'Unix daemon and supporting models for publishing data from Diematic DeDietrich boiler',
+	long_description = long_description,
+	long_description_content_type = 'text/markdown; charset=UTF-8',
   author = 'Ignacio Hernández-Ros',
   author_email = 'ignacio@hernandez-ros.com',
+  packages = ['diematic-server'],
+  license='MIT',
   url = 'https://github.com/IgnacioHR/diematic-server',
-  download_url = 'https://github.com/IgnacioHR/diematic-server/archive/refs/tags/1.0.tar.gz',    # I explain this later on
+  download_url = 'https://github.com/IgnacioHR/diematic-server/archive/refs/tags/1.0.tar.gz',
   keywords = ['python', 'home-automation', 'iot', 'influxdb', 'restful', 'modbus', 'de-dietrich', 'diematic'],
   install_requires=[
           'certifi',
@@ -32,9 +39,11 @@ setup(
       ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
+		'Environment :: No Input/Output (Daemon)',
     'Intended Audience :: Developers',
-    'Topic :: Home automation :: IOT',
-    'License :: MIT License',
+    'License :: OSI Approved :: MIT License',
+		'Operating System :: Unix',
     'Programming Language :: Python :: 3.7',
-  ],
+		'Topic :: Home Automation',
+	],
 )
