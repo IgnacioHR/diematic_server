@@ -1,5 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 import json
+from io import BytesIO
 
 def _parameter_names(boiler):
 	parameter_names = []
@@ -46,18 +47,20 @@ class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
 		}
 	"""
 
-	def _set_headers_json(self):
+	def _set_headers_json(self, contentLength):
 		self.send_response(200)
 		self.send_header('Content-type', 'application/json')
+		self.send_header('Content-length', contentLength)
 		self.end_headers()
 
 	def _set_headers_ok(self):
 		self.send_response(200)
 		self.end_headers()
 
-	def _set_headers_html(self):
+	def _set_headers_html(self, contentLength):
 		self.send_response(200)
 		self.send_header('Content-type', 'text/html; charset=utf-8')
+		self.send_header('Content-length', contentLength)
 		self.end_headers()
 
 	def _set_error(self, message):
@@ -137,24 +140,42 @@ class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
 	def send_list(self):
 		""" produces a list of well known register names 
 		"""
-		self._set_headers_html()
-		self.wfile.write(bytes("<html><head><title>Diematic REST controller by IHR at home (Ignacio Hernández-Ros)</title></head>", "utf-8"))
-		self.wfile.write(bytes("<body>", "utf-8"))
-		self.wfile.write(bytes("<p>Recognized parameters list</p>", "utf-8"))
-		self.wfile.write(bytes("<ul>", "utf-8"))
-		for name in self.parameter_names:
-			self.wfile.write(bytes("<li><a href='/diematic/parameters/{name}'>{name}</a></li>".format(name=name), "utf-8"))
-		self.wfile.write(bytes("</ul>", "utf-8"))
-		self.wfile.write(bytes("</body></html>", "utf-8"))
+		with BytesIO() as bio:
+			bio.write(bytes("<html><head><title>Diematic REST controller by IHR at home (Ignacio Hernández-Ros)</title></head>", "utf-8"))
+			bio.write(bytes("<body>", "utf-8"))
+			bio.write(bytes("<p>Recognized parameters list</p>", "utf-8"))
+			bio.write(bytes("<ul>", "utf-8"))
+			for name in self.parameter_names:
+				bio.write(bytes("<li><a href='/diematic/parameters/{name}'>{name}</a></li>".format(name=name), "utf-8"))
+			bio.write(bytes("</ul>", "utf-8"))
+			bio.write(bytes("</body></html>", "utf-8"))
+			contentLength = len(bio.getvalue())
+			self._set_headers_html(contentLength)
+			self.wfile.write(bio.getvalue())
 
 	def send_param(self, param_name):
-		self._set_headers_json()
-		self.wfile.write(bytes(json.dumps(getattr(self.boiler, param_name)), "utf-8"))
+		""" send only one parameter value
+		"""
+		with BytesIO() as bio:
+			bio.write(bytes(json.dumps(getattr(self.boiler, param_name)), "utf-8"))
+			contentLength = len(bio.getvalue())
+			self._set_headers_json(contentLength)
+			self.wfile.write(bio.getvalue())
 
 	def send_json(self):
-		self._set_headers_json()
-		self.wfile.write(bytes(self.boiler.toJSON(),"utf-8"))
+		""" send all values as a big json
+		"""
+		with BytesIO() as bio:
+			bio.write(bytes(self.boiler.toJSON(),"utf-8"))
+			contentLength = len(bio.getvalue())
+			self._set_headers_json(contentLength)
+			self.wfile.write(bio.getvalue())
 
 	def send_config(self):
-		self._set_headers_json()
-		self.wfile.write(bytes(self.app.toJSON(),"utf-8"))
+		""" send configuration file in json format
+		"""
+		with BytesIO() as bio:
+			bio.write(bytes(self.app.toJSON(),"utf-8"))
+			contentLength = len(bio.getvalue())
+			self._set_headers_json(contentLength)
+			self.wfile.write(bio.getvalue())
