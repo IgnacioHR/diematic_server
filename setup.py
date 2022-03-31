@@ -7,7 +7,7 @@ with open('README.md', 'r', encoding='utf-8') as long_description_f:
 
 setuptools.setup(
   name = 'diematic-server',
-  version = '1.0',
+  version = '1.1',
   description = 'Unix daemon and supporting models for publishing data from Diematic DeDietrich boiler',
 	long_description = long_description,
 	long_description_content_type = 'text/markdown; charset=UTF-8',
@@ -16,7 +16,7 @@ setuptools.setup(
   packages = ['diematic-server'],
   license='MIT',
   url = 'https://github.com/IgnacioHR/diematic-server',
-  download_url = 'https://github.com/IgnacioHR/diematic-server/archive/refs/tags/1.0.tar.gz',
+  download_url = 'https://github.com/IgnacioHR/diematic-server/archive/refs/tags/v1.1.tar.gz',
   keywords = ['python', 'home-automation', 'iot', 'influxdb', 'restful', 'modbus', 'de-dietrich', 'diematic'],
   install_requires=[
           'certifi',
@@ -26,7 +26,6 @@ setuptools.setup(
 					'idna',
 					'influxdb',
 					'lockfile',
-					'pkg-resources',
 					'pymodbus',
 					'pyserial',
 					'python-daemon',
