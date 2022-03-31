@@ -7,7 +7,7 @@ with open('README.md', 'r', encoding='utf-8') as long_description_f:
 
 setuptools.setup(
   name = 'diematic_server',
-  version = '1.1',
+  version = '1.2',
   description = 'Unix daemon and supporting models for publishing data from Diematic DeDietrich boiler',
 	long_description = long_description,
 	long_description_content_type = 'text/markdown; charset=UTF-8',
