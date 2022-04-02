@@ -160,6 +160,7 @@ class DiematicWebRequestHandler:
 		value = jsoninput['value']
 		mainapp = request.app["mainapp"]
 		mainapp.MyBoiler.set_write_pending(param_name, value)
+		mainapp.check_pending_writes()
 		return web.Response()
 
 	@routes.post('/diematic/parameters/{paramName}/resume')

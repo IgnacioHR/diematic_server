@@ -25,6 +25,7 @@ from daemon import DaemonContext
 from daemon import pidfile
 from aiohttp import web
 import asyncio
+import concurrent.futures
 
 from webserver import DiematicWebRequestHandler
 
@@ -131,16 +132,15 @@ class DiematicApp:
             self.context.app = self
 
             self.pidfile_timeout = 3
-            # self._open_streams_from_app_stream_paths()
             return self.context
 
-    # def _get_executor(self):
-    #     """ create the executor pool or return if already created """
-    #     try:
-    #         return self.executor
-    #     except AttributeError:
-    #         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    #         return self.executor
+    def _get_executor(self):
+        """ create the executor pool or return if already created """
+        try:
+            return self.executor
+        except AttributeError:
+            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            return self.executor
 
     def _value_writer(self):
         """ consumes a job writing to the boiler """
