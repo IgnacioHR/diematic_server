@@ -1,5 +1,4 @@
 import logging
-import json
 
 from datetime import datetime
 
@@ -321,7 +320,7 @@ class Boiler:
         return output
 
     def toJSON(self):
-        return json.dumps(self.fetch_data())
+        return self.fetch_data()
 
     def set_write_pending(self, varname, newvalue):
         value = getattr(self, varname, None)

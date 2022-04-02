@@ -1,8 +1,14 @@
-from http.server import BaseHTTPRequestHandler
-import json
-from io import BytesIO
+""" 
+We will use aiohttp for the new web server. 
+This shall provide http 1.1 support and hopefully shall not produce 
+aiohttp.client_exceptions.ClientPayloadError: Response payload is not completed
+problems on the client side. Let's see how it works!
+"""
 
-def _parameter_names(boiler):
+import json
+from aiohttp import web
+
+def _parameter_names(boiler) -> list:
 	parameter_names = []
 	for register in boiler.index:
 		if register['type'] == 'bits':
@@ -14,31 +20,40 @@ def _parameter_names(boiler):
 	parameter_names.sort()
 	return parameter_names
 
-def MakeDiematicWebRequestHandler(param):
-	class DiematicWebRequestHandler(DiematicLocalWebRequestHandler):
-		def __init__(self, *args, **kwargs):
-			super(DiematicWebRequestHandler, self).__init__(*args, **kwargs)
-		app = param
-		boiler = app.MyBoiler
-		parameter_names = _parameter_names(boiler)
-	return DiematicWebRequestHandler
 
-class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
+class DiematicWebRequestHandler:
 	""" 
-		This class is a web server that provides GET and POST
+		This class implements the web server that provides GET and POST
 		requests for the parameters of the boiler
 
 		The parameters are defined in the same diematic.yaml file
 
 		URL format:
-		GET http://{host}/diematic/parameters
+		GET http://{host:port}/diematic/parameters
 		returns a list of known parameters from the diematic.yaml
 
-		GET http://{host}/diematic/parameters/{parameterName}
+		GET http://{host:port}/diematic/parameters/{parameterName}
 		return a JSON 
 		{
-			"paremeterName": value
+			"name": "parameterName",
+			"status": "read",
+			"value": 34,
+			"id": 680,
+			"influx": true,
+			"read": "2022-04-02T17:21:32.751479"
 		}
+
+		name: is the parameter name
+		status: can be:
+			"init": the value has not been read, the record is initialized
+			"read": the value has been read
+			"writepending": there is a new value pending to be written
+			"checking": the value has been written, the boiler is pending reading to check if the new value has been successfully set
+			"error": a problem occurred while setting the value
+		value: the parameter value
+		read: the last time the value was set
+		newvalue: when status is "writepending" this record holds the value to be written
+		error: the error message when status is "error"
 
 		POST http://{host}/diematic/parameters/{parameterName}
 		body must contain a json
@@ -47,135 +62,121 @@ class DiematicLocalWebRequestHandler(BaseHTTPRequestHandler):
 		}
 	"""
 
-	def _set_headers_json(self, contentLength):
-		self.send_response(200)
-		self.send_header('Content-type', 'application/json')
-		self.send_header('Content-length', contentLength)
-		self.end_headers()
+	routes = web.RouteTableDef()
+	parameter_names = []
 
-	def _set_headers_ok(self):
-		self.send_response(200)
-		self.end_headers()
-
-	def _set_headers_html(self, contentLength):
-		self.send_response(200)
-		self.send_header('Content-type', 'text/html; charset=utf-8')
-		self.send_header('Content-length', contentLength)
-		self.end_headers()
-
-	def _set_error(self, message):
-		self.send_response(404)
-		self.send_header('Content-type', 'text/html')
-		self.end_headers()
-		self.wfile.write(bytes("<html><head><title>Diematic REST controller by IHR at home (Ignacio Hernández-Ros)</title></head>", "utf-8"))
-		self.wfile.write(bytes("<body>", "utf-8"))
-		self.wfile.write(bytes("<p>Request: %s</p>" % self.path, "utf-8"))
-		self.wfile.write(bytes("<p>NOT FOUND {message!r}!</p>".format(message = message), "utf-8"))
-		self.wfile.write(bytes("</body></html>", "utf-8"))
-
-	def do_GET(self):
-		""" returns parameters list or one parameter data in json format
-			http://.../diematic/parameters
-			http://.../diematic/parameters/{parameter_name}
-		"""
-		pathParts = self.path.split('/')
-		if len(pathParts) < 3 or pathParts[1] != 'diematic':
-			self._set_error('GET request FAILED. Try http://.../diematic/parameters to obtain the list of known parameter names')
-		if len(pathParts) == 3 and 'parameters' == pathParts[2]:
-			self.send_list()
-		elif len(pathParts) == 3 and 'json' == pathParts[2]:
-			self.send_json()
-		elif len(pathParts) == 3 and 'config' == pathParts[2]:
-			self.send_config()
-		elif len(pathParts) == 4 and 'parameters' == pathParts[2] and pathParts[3] in self.parameter_names:
-			self.send_param(pathParts[3])
-		else:
-			self._set_error('{path!r} is not a known request'.format(path=self.path))
-
-	def do_POST(self):
-		""" updates a value of one parameter in the boiler
-			http://.../diematic/parameters/{parameter_name}
-			the body shall contain json like this { "value": "12345" }
-		"""
-		pathParts = self.path.split('/')
-		if len(pathParts) < 4:
-			self._set_error('POST request FAILED. Try http://.../diematic/parameters to obtain the list of known parameter names')
-			return
-		valid1 = 'diematic' == pathParts[1]
-		if not valid1:
-			self._set_error('POST request FAILED. Try http://.../diematic/parameters/\{parameter_name\} in url and \{ "value": value \} in body. 1st path must be \'diematic\'')
-			return
-		valid2 = 'parameters' == pathParts[2]
-		if not valid2:
-			self._set_error('POST request FAILED. Try http://.../diematic/parameters/\{parameter_name\} in url and \{ "value": value \} in body. 2nd path must be \'parameters\'')
-			return
-		valid3 = pathParts[3] in self.parameter_names
-		if not valid3:
-			self._set_error('POST request FAILED. Try http://.../diematic/parameters/\{parameter_name\} in url and \{ "value": value \} in body. 3rd path must be one parameter name that is defined in the diematic.yaml file')
-			return
-
-		try:
-			if len(pathParts) == 4:
-				content_len = int(self.headers.get('content-length', 0))
-				post_body_json = self.rfile.read(content_len).decode('utf8')
-				jsoninput = json.loads(post_body_json)
-				value = jsoninput['value']
-				self.set_param(pathParts[3], value)
-				self._set_headers_ok()
-			elif len(pathParts) == 5 and 'resume' == pathParts[4]:
-				""" clear previous error, no body is required """
-				self.boiler.clear_error(pathParts[3])
-				self._set_headers_ok()
+	def __init__(self, boiler) -> None:
+		DiematicWebRequestHandler.parameter_names.clear()
+		for register in boiler.index:
+			if register['type'] == 'bits':
+				for bit in register['bits']:
+					if bit != "io_unused":
+						DiematicWebRequestHandler.parameter_names.append(bit)
 			else:
-				self._set_error('in order to clear an error, path must be http://.../diematic/parameters/\{parameter_name\}/resume ')
-		except BaseException as error:
-			self._set_error('POST request FAILED. Error {error}'.format(error=error))
+				DiematicWebRequestHandler.parameter_names.append(register['name'])
+		DiematicWebRequestHandler.parameter_names.sort()
 
-	def set_param(self, paramName, paramValue):
-		""" generates a request to update the value by writing in the registers
-		"""
-		self.boiler.set_write_pending(paramName, paramValue)
-		self.app.check_pending_writes()
+	@routes.get('/diematic/parameters')
+	async def send_list(request):
+		""" produces a list of well known register names."""
+		scheme = request.scheme
+		host = request.host
+		document = f"""
+<html>
+	<head>
+		<title>Diematic REST controller by IHR at home (Ignacio Hernández-Ros)</title>
+		<style type="text/css">
+			body {{
+				font-size: 0.9em;
+				font-family: sans-serif;
+			}}
+			.styled-table {{
+				border-collapse: collapse;
+				margin: 25px 0;
+				min-width: 400px;
+				box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+			}}
+			.styled-table thead tr {{
+				background-color: #009879;
+				color: #ffffff;
+				text-align: left;
+			}}
+			.styled-table th,
+			.styled-table td {{
+					padding: 12px 15px;
+			}}
+			.styled-table tbody tr {{
+					border-bottom: 1px solid #dddddd;
+			}}
+			.styled-table tbody tr:nth-of-type(even) {{
+					background-color: #f3f3f3;
+			}}
+			.styled-table tbody tr:last-of-type {{
+					border-bottom: 2px solid #009879;
+			}}
+		</style>
+	</head>
+<body>
+	<table class="styled-table">
+		<thead>
+			<tr><th colspan="3">Usage:</th></tr>
+		</thead>
+		<tbody>
+			<tr><td>GET</td><td>{scheme}://{host}/diematic/parameters</td><td><b>returns this page</b></td></tr>
+			<tr><td>GET</td><td>{scheme}://{host}/diematic/parameter/{{name}}</td><td><b>returns json with parameter information</b></td></tr>
+			<tr><td>GET</td><td>{scheme}://{host}/diematic/config</td><td><b>returns boiler configuration parameters</b></td></tr>
+			<tr><td>GET</td><td>{scheme}://{host}/diematic/json</td><td><b>returns all boiler parameters in single json</b></td></tr>
+			<tr><td>POST</td><td>{scheme}://{host}/diematic/parameter/{{name}}</td><td><b>Set a parameter value. The body must be a json of this shape {{"value": XX}}. After the POST, the parameters may take some time to be written to the boiler. Use GET with the parameter name for information about the write operation status.</b></td></tr>
+			<tr><td>POST</td><td>{scheme}://{host}/diematic/parameter/{{name}}/resume</td><td><b>If, for any reason, a write operation fails, a post like this will reset parameter to normal status.</b></td></tr>
+		</tbody>
+	</table>
+	<p>Recognized parameters list</p>
+	<ul>"""
+		for name in _parameter_names(request.app["mainapp"].MyBoiler):
+			document = document + f"<li><a href='/diematic/parameters/{name}'>{name}</a></li>\n"
+		document = document + """</ul></body></html>"""
+		return web.Response(text=document, content_type='text/html')
 
-	def send_list(self):
-		""" produces a list of well known register names 
-		"""
-		with BytesIO() as bio:
-			bio.write(bytes("<html><head><title>Diematic REST controller by IHR at home (Ignacio Hernández-Ros)</title></head>", "utf-8"))
-			bio.write(bytes("<body>", "utf-8"))
-			bio.write(bytes("<p>Recognized parameters list</p>", "utf-8"))
-			bio.write(bytes("<ul>", "utf-8"))
-			for name in self.parameter_names:
-				bio.write(bytes("<li><a href='/diematic/parameters/{name}'>{name}</a></li>".format(name=name), "utf-8"))
-			bio.write(bytes("</ul>", "utf-8"))
-			bio.write(bytes("</body></html>", "utf-8"))
-			contentLength = len(bio.getvalue())
-			self._set_headers_html(contentLength)
-			self.wfile.write(bio.getvalue())
+	@routes.get('/diematic/parameters/{paramName}')
+	async def send_param(request):
+		param_name = request.match_info.get('paramName')
+		if not param_name in DiematicWebRequestHandler.parameter_names:
+			return web.Response(status=422, reason=f'\'{param_name}\' is an invalid parameter')
+		boiler = request.app["mainapp"].MyBoiler
+		value = getattr(boiler, param_name)
+		return web.json_response(value)
 
-	def send_param(self, param_name):
-		""" send only one parameter value
-		"""
-		with BytesIO() as bio:
-			bio.write(bytes(json.dumps(getattr(self.boiler, param_name)), "utf-8"))
-			contentLength = len(bio.getvalue())
-			self._set_headers_json(contentLength)
-			self.wfile.write(bio.getvalue())
+	@routes.post('/diematic/parameters/{paramName}')
+	async def set_param(request):
+		param_name = request.match_info.get('paramName')
+		if not param_name in DiematicWebRequestHandler.parameter_names:
+			return web.Response(status=422, reason=f'\'{param_name}\' is an invalid parameter')
+		content_len = request.content_length
+		if not content_len is None:
+			data = await request.content.read(content_len)
+		else:
+			data = await request.content.read()
+		jsoninput = json.loads(data.decode('utf8'))
+		value = jsoninput['value']
+		mainapp = request.app["mainapp"]
+		mainapp.MyBoiler.set_write_pending(param_name, value)
+		return web.Response()
 
-	def send_json(self):
-		""" send all values as a big json
-		"""
-		with BytesIO() as bio:
-			bio.write(bytes(self.boiler.toJSON(),"utf-8"))
-			contentLength = len(bio.getvalue())
-			self._set_headers_json(contentLength)
-			self.wfile.write(bio.getvalue())
+	@routes.post('/diematic/parameters/{paramName}/resume')
+	async def set_param(request):
+		param_name = request.match_info.get('paramName')
+		if not param_name in DiematicWebRequestHandler.parameter_names:
+			return web.Response(status=422, reason=f'\'{param_name}\' is an invalid parameter')
+		mainapp = request.app["mainapp"]
+		mainapp.MyBoiler.clear_error(param_name)
+		return web.Response()
 
-	def send_config(self):
-		""" send configuration file in json format
-		"""
-		with BytesIO() as bio:
-			bio.write(bytes(self.app.toJSON(),"utf-8"))
-			contentLength = len(bio.getvalue())
-			self._set_headers_json(contentLength)
-			self.wfile.write(bio.getvalue())
+	@routes.get('/diematic/json')
+	async def send_json(request):
+		config = request.app["mainapp"].MyBoiler.toJSON()
+		return web.json_response(config)
+
+	@routes.get('/diematic/config')
+	async def send_config(request):
+		config = request.app["mainapp"].toJSON()
+		return web.json_response(config)
