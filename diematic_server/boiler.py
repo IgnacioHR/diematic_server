@@ -18,13 +18,16 @@ class Boiler:
             if 'influx' in register:
                 influx = register['influx']
 
-            if register['type'] == 'bits':
-                for varname in register['bits']:
-                    self._init_register_value(varname, register['id'], influx)
-                    self.attribute_list.append(varname)
-            else:
-                self._init_register_value(register['name'], register['id'], influx)
+            if 'name' in register and 'id' in register:
+                is_bits = 'type' in register and register['type'] == 'bits'
+
+                self._init_register_value(register['name'], register['id'], influx and not is_bits)
                 self.attribute_list.append(register['name'])
+
+                if 'type' in register and register['type'] == 'bits':
+                    for varname in register['bits']:
+                        self._init_register_value(varname, register['id'], influx)
+                        self.attribute_list.append(varname)
 
     def _init_register_value(self, varname, id, influx):
         setattr(self, varname, {'name': varname, 'status': 'init', 'value': None, 'id': id, 'influx': influx})
@@ -269,6 +272,9 @@ class Boiler:
             return
         log.info('Browsing register id {:d} value: {:#04x}'.format(register['id'], register_value))
         if register['type'] == 'bits':
+            if 'name' in register:
+                varname = register.get('name')
+                self._set_register_value(varname, register_value)
             for i in range(len(register['bits'])):
                 bit_varname = register['bits'][i]
                 if bit_varname == 'io_unused':
@@ -276,20 +282,21 @@ class Boiler:
                 bit_value = register_value >> i & 1
                 self._set_register_value(bit_varname, bit_value)
         else:
-            varname = register.get('name')
-            if varname and varname.strip(): #test name exists
-                if register['type'] == 'DiematicOneDecimal':
-                    self._set_register_value(varname, self._decode_decimal(register_value, 1))
-                elif register['type'] == 'DiematicModeFlag':
-                    self._set_register_value(varname, self._decode_modeflag(register_value))
-                elif register['type'] == 'ErrorCode':
-                    self._set_register_value(varname, self._decode_errorcode(register_value))
-                elif register['type'] == 'DiematicCircType':
-                    self._set_register_value(varname, self._decode_circtype(register_value))
-                elif register['type'] == 'DiematicProgram':
-                    self._set_register_value(varname, self._decode_program(register_value))
-                else:
-                    self._set_register_value(varname, register_value)
+            if 'name' in register:
+                varname = register.get('name')
+                if varname and varname.strip(): #test name exists
+                    if register['type'] == 'DiematicOneDecimal':
+                        self._set_register_value(varname, self._decode_decimal(register_value, 1))
+                    elif register['type'] == 'DiematicModeFlag':
+                        self._set_register_value(varname, self._decode_modeflag(register_value))
+                    elif register['type'] == 'ErrorCode':
+                        self._set_register_value(varname, self._decode_errorcode(register_value))
+                    elif register['type'] == 'DiematicCircType':
+                        self._set_register_value(varname, self._decode_circtype(register_value))
+                    elif register['type'] == 'DiematicProgram':
+                        self._set_register_value(varname, self._decode_program(register_value))
+                    else:
+                        self._set_register_value(varname, register_value)
 
     def browse_registers(self):
         for register in self.index:

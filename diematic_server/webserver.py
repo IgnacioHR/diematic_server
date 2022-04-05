@@ -8,17 +8,17 @@ problems on the client side. Let's see how it works!
 import json
 from aiohttp import web
 
-def _parameter_names(boiler) -> list:
-	parameter_names = []
-	for register in boiler.index:
-		if register['type'] == 'bits':
-			for bit in register['bits']:
-				if bit != "io_unused":
-					parameter_names.append(bit)
-		else:
-			parameter_names.append(register['name'])
-	parameter_names.sort()
-	return parameter_names
+# def _parameter_names(boiler) -> list:
+# 	parameter_names = []
+# 	for register in boiler.index:
+# 		if register['type'] == 'bits':
+# 			for bit in register['bits']:
+# 				if bit != "io_unused":
+# 					parameter_names.append(bit)
+# 		else:
+# 			parameter_names.append(register['name'])
+# 	parameter_names.sort()
+# 	return parameter_names
 
 
 class DiematicWebRequestHandler:
@@ -68,12 +68,12 @@ class DiematicWebRequestHandler:
 	def __init__(self, boiler) -> None:
 		DiematicWebRequestHandler.parameter_names.clear()
 		for register in boiler.index:
-			if register['type'] == 'bits':
-				for bit in register['bits']:
-					if bit != "io_unused":
-						DiematicWebRequestHandler.parameter_names.append(bit)
-			else:
+			if 'name' in list(register):
 				DiematicWebRequestHandler.parameter_names.append(register['name'])
+				if 'type' in list(register) and register['type'] == 'bits':
+					for bit in register['bits']:
+						if bit != "io_unused":
+							DiematicWebRequestHandler.parameter_names.append(bit)
 		DiematicWebRequestHandler.parameter_names.sort()
 
 	@routes.get('/diematic/parameters')
@@ -132,7 +132,7 @@ class DiematicWebRequestHandler:
 	</table>
 	<p>Recognized parameters list</p>
 	<ul>"""
-		for name in _parameter_names(request.app["mainapp"].MyBoiler):
+		for name in DiematicWebRequestHandler.parameter_names:
 			document = document + f"<li><a href='/diematic/parameters/{name}'>{name}</a></li>\n"
 		document = document + """</ul></body></html>"""
 		return web.Response(text=document, content_type='text/html')

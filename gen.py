@@ -67,9 +67,12 @@ class ConfigBuilder:
 					for startminute in ['00', '30']:
 						if newline:
 							# hr = []
+							endhour = starthour + 8 if starthour < 16 else 00
 							entry = {
 								'id': register,
 								'type': 'bits',
+								'ha': True,
+								'name': f"{day}_{cname}_{starthour:02}00_{endhour:02}00",
 								'bits': [],
 							}
 							register += 1
