@@ -361,10 +361,10 @@ class Boiler:
                 if bit_varname == 'io_unused':
                     continue
                 if bit_varname != write['name']:
-                    bit_value = getattr(self, bit_varname)['value'] >> i
+                    bit_value = getattr(self, bit_varname)['value'] << i
                     overallvalue = overallvalue | bit_value
                 else:
-                    bit_value = write['newvalue'] & 1 >> i
+                    bit_value = write['newvalue'] << i
                     overallvalue = overallvalue | bit_value
             encodedValue = overallvalue
         if register['type'] == 'DiematicOneDecimal':

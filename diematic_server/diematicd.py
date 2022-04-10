@@ -8,6 +8,7 @@ See and respect licensing terms
 
 """
 import logging
+from typing import NoReturn
 import yaml
 import os
 import signal
@@ -28,6 +29,7 @@ import asyncio
 import concurrent.futures
 
 from webserver import DiematicWebRequestHandler
+from filelck import FileLock, FileLockException
 
 """
 
@@ -107,10 +109,9 @@ class DiematicApp:
         self.MODBUS_BAUDRATE = None
         self.MODBUS_UNIT = None
         self.MODBUS_DEVICE = None
+        self.connection_lock = None
 
         self.first_run = True
-
-        self.connection_semaphore = threading.Semaphore()
 
         return
 
@@ -142,27 +143,32 @@ class DiematicApp:
             self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
             return self.executor
 
-    def _value_writer(self):
+    def _value_writer(self) -> None:
         """ consumes a job writing to the boiler """
         write = self.MyBoiler.next_write()
-        tryCount = 0
         while not write is None and 'name' in write:
             paramName = write['name']
             winfo = self.MyBoiler.prepare_write(write)
             address = winfo['address']
             newvalue = winfo['value']
             log.info("Pending write {register} address {address} newvalue {newvalue}".format(register=paramName, address=address, newvalue=newvalue))
-            if tryCount > 5:
-                # too many attemnts to write a value
-                self.MyBoiler.write_error(paramName, "write operation failed, too many attempts to write parameter {parameterName} value {wvalue} in address {address}".format(parameterName=paramName, wvalue=newvalue, address=address))
-                return
+            self._internal_value_writer(paramName, address, newvalue)
+            write = self.MyBoiler.next_write()
+
+    def _internal_value_writer(self, paramName: str, address: int, newvalue: int) -> None:
+        """ Writes a value to a register
+        
+        :param paramName: the parameter name, used only to prepare error message if needed
+        :param address: the address to write to
+        :param newvalue: the value to write, two bytes 
+        """
+        try_count = 0
+        while try_count < 6:
             try:
-                self.connection_semaphore.acquire()
-                log.info("Connection adquired")
-                try:
-                    with ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE) as client:
-                        client.connect()
-                        try:
+                with FileLock(self.connection_lock):
+                    try:
+                        client = ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
+                        with client:
                             log.info("Going to write")
                             rr = client.write_registers(address, newvalue, unit=self.MODBUS_UNIT)
                             if rr.isError():
@@ -177,19 +183,20 @@ class DiematicApp:
                                 self.MyBoiler.write_error(paramName, "write operation success, but read value differs write value {wvalue} read value {rvalue}".format(wvalue=newvalue, rvalue=receivedvalue))
                             else:
                                 self.MyBoiler.write_ok(paramName)
-                        finally:
-                            log.info("Closing connection")
-                            client.close()
-                    write = self.MyBoiler.next_write()
-                finally:
-                    log.info("Releasing semaphore")
-                    self.connection_semaphore.release()
-            except DiematicModbusError as error:
-                tryCount += 1
-                self.MyBoiler.write_error(paramName, "write operation failed, {errormessage}".format(errormessage=error))
-                log.info("Repeat in one second")
-                time.sleep(1)
+                            return
+                    except DiematicModbusError as error:
+                        try_count += 1
+                        self.MyBoiler.write_error(paramName, "write operation failed, {errormessage}".format(errormessage=error))
+                        log.info("Repeat in one second")
+                        time.sleep(1)
+                        pass
+            except FileLockException:
+                try_count += 1
+                log.info("Can't lock the serial port")
                 pass
+
+        self.MyBoiler.write_error(paramName, "write operation failed, too many attempts to write parameter {parameterName} value {wvalue} in address {address}".format(parameterName=paramName, wvalue=newvalue, address=address))
+
 
     def run(self):
         self._reload_configuration(None,None)
@@ -212,7 +219,7 @@ class DiematicApp:
         if self.args.server == 'loop':
             x.join()
 
-    def main_program_loop(self):
+    def main_program_loop(self) -> NoReturn:
         while True:
             self.do_main_program()
             time.sleep(60) # a minute
@@ -259,11 +266,10 @@ class DiematicApp:
         if self.first_run:
             log.info("Connection parameters: device={port!r} timeout={timeout!r} baudrate={baudrate!r}".format(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE))
             self.first_run = False
-        self.connection_semaphore.acquire()
         try:
-            with ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE) as client:
-                client.connect()
-                try:
+            with FileLock(self.connection_lock):
+                client = ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
+                with client:
                     self.MyBoiler.registers = []
                     id_stop = -1
 
@@ -280,10 +286,9 @@ class DiematicApp:
                             # MyBoiler.registers.extend([None] * (id_stop-id_start+1))
                         else:
                             self.MyBoiler.registers.extend(rr.registers)
-                finally:
-                    client.close()
-        finally:
-            self.connection_semaphore.release()
+        except FileLockException:
+            log.warning("Can't adquire the lock on the serial port")
+            return
 
         #parsing registers to push data in Object attributes
         self.MyBoiler.browse_registers()
@@ -401,6 +406,10 @@ class DiematicApp:
         else:
             self.do_main_program()
 
+    def _writeregister(self):
+        """ Write a value to a register. This method is used for testing purposes only"""
+        pass
+
     def _readregister(self):
         """ Read the content of the indicated register and shows the
             value. Does not need to exist in the yaml file
@@ -410,15 +419,14 @@ class DiematicApp:
         self._reload_configuration(None,None)
         self._create_boiler()
         tryCount = 0
-        self.connection_semaphore.acquire()
         try:
-            while tryCount < 5:
-                registers = []
-                tryCount += 1
-                try:
-                    with ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE) as client:
-                        client.connect()
-                        try:
+            with FileLock(self.connection_lock):
+                while tryCount < 5:
+                    registers = []
+                    tryCount += 1
+                    try:
+                        client = ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
+                        with client:
                             registers.extend([None] * (-1))
                             log.debug("Attempt to read register {}".format(address))
                             rr = client.read_holding_registers(count=1, address=address, unit=self.MODBUS_UNIT)
@@ -473,13 +481,12 @@ class DiematicApp:
                                 elif format == 'bitF':
                                     emit_message("Register {} value {}".format(address, (registers[0] & 0x8000) >> 15), sys.stdout)
                                 tryCount = 99 # exit while
-                        finally:
-                            client.close()
-                except DiematicModbusError:
-                    time.sleep(1)
-                    pass
-        finally:
-            self.connection_semaphore.release()        
+                    except DiematicModbusError:
+                        time.sleep(1)
+                        pass
+        except FileLockException:
+            log.warning("Can't adquire the lock file on the serial port")
+            pass
 
     def _terminate_daemon_process(self, _signal, _stack):
         """ Terminate the daemon process specified in the current PID file.
@@ -547,6 +554,7 @@ class DiematicApp:
         """ Reload the configuration from the configuration file."""
         if self.args.device:
             self.MODBUS_DEVICE = self.args.device
+            self.connection_lock = self.MODBUS_DEVICE[self.MODBUS_DEVICE.rindex('/')+1:]
 
         self.read_config_file()
         self.set_logging_level()
@@ -559,6 +567,7 @@ class DiematicApp:
                 self.MODBUS_UNIT = self.cfg['modbus']['unit']
             if isinstance(self.cfg['modbus']['device'], str):
                 self.MODBUS_DEVICE = self.cfg['modbus']['device']
+                self.connection_lock = self.MODBUS_DEVICE[self.MODBUS_DEVICE.rindex('/')+1:]
         if self.MODBUS_TIMEOUT is None:
             self.MODBUS_TIMEOUT = DEFAULT_MODBUS_TIMEOUT
         if self.MODBUS_BAUDRATE is None:
@@ -599,7 +608,8 @@ class DiematicApp:
         'status': _status,
         'reload': _reload,
         'runonce': _runonce,
-        'readregister': _readregister
+        'readregister': _readregister,
+        'writeregister': _writeregister,
     }
 
     def _get_action_func(self):
@@ -682,7 +692,7 @@ def parse_args(app, argv=None):
     # retrieve command line arguments
     # --------------------------------------------------------------------------- #
     parser = argparse.ArgumentParser()
-    parser.add_argument(dest='action', choices=['status', 'start', 'stop', 'restart', 'reload', 'runonce', 'readregister'], default="runonce", help="action to take", type=ActionType)
+    parser.add_argument(dest='action', choices=['status', 'start', 'stop', 'restart', 'reload', 'runonce', 'readregister', 'writeregister'], default="runonce", help="action to take", type=ActionType)
     parser.add_argument("-b", "--backend", choices=['none', 'influxdb'], default='influxdb', help="select data backend (default is influxdb)")
     parser.add_argument("-d", "--device", help="define modbus device")
     parser.add_argument("-f", "--foreground", help="Run in the foreground do not detach process", action="store_true")
@@ -706,7 +716,7 @@ def parse_args(app, argv=None):
         if not ('-l' in argv or 'loggin' in argv):
             app.args.logging = 'info'
 
-    if app.args.action == 'readregister':
+    if app.args.action == 'readregister' or app.args.action == 'writeregister':
         app.args.backend = 'none'
 
     # self.action = str(argv[1])

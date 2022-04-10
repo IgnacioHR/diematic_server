@@ -115,6 +115,38 @@ class DiematicWebRequestHandler:
 					border-bottom: 2px solid #009879;
 			}}
 		</style>
+		<script>
+			function changeValue(parameter) {{
+				let newValue = prompt('Change value for '+parameter+' parameter', '');
+				if (newValue) {{
+					let xhr = new XMLHttpRequest();
+					let url = '/diematic/parameters/'+parameter;
+
+					xhr.open("POST", url, true);
+					xhr.setRequestHeader("Content-Type", "application/json");
+					xhr.onreadystatechange = function () {{
+							if (xhr.readyState === 4 && xhr.status === 200) {{
+									window.alert('The value is set\\nreview write progress reading the parameter!');
+							}}
+          }};
+					var data = '{{ "value": '+newValue+' }}';
+ 					xhr.send(data);
+				}}
+			}}
+			function resumeSetValue(parameter) {{
+				let xhr = new XMLHttpRequest();
+				let url = '/diematic/parameters/'+parameter+'/resume';
+
+				xhr.open("POST", url, true);
+				xhr.setRequestHeader("Content-Type", "application/json");
+				xhr.onreadystatechange = function () {{
+						if (xhr.readyState === 4 && xhr.status === 200) {{
+								window.alert('write operation resumed!');
+						}}
+				}};
+				xhr.send();
+			}}
+		</script>
 	</head>
 <body>
 	<table class="styled-table">
@@ -133,7 +165,7 @@ class DiematicWebRequestHandler:
 	<p>Recognized parameters list</p>
 	<ul>"""
 		for name in DiematicWebRequestHandler.parameter_names:
-			document = document + f"<li><a href='/diematic/parameters/{name}'>{name}</a></li>\n"
+			document = document + f"<li><a href='/diematic/parameters/{name}'>{name}</a>&nbsp;<button type=\"button\" onclick=\"changeValue(\'{name}\')\">change</button>&nbsp;<button type=\"button\" onclick=\"resumeSetValue(\'{name}\')\">Resume</button></li>\n"
 		document = document + """</ul></body></html>"""
 		return web.Response(text=document, content_type='text/html')
 
