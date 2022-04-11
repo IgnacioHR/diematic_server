@@ -67,7 +67,6 @@ registers:
     - id: 126
       type: bits
       ha: true
-      name: monday_a_0000_0800
       bits:
       - monday_a_0730_0800
       - monday_a_0700_0730
@@ -88,7 +87,6 @@ registers:
     - id: 127
       type: bits
       ha: true
-      name: monday_a_0800_1600
       bits:
       - monday_a_1530_1600
       - monday_a_1500_1530
@@ -109,7 +107,6 @@ registers:
     - id: 128
       type: bits
       ha: true
-      name: monday_a_1600_0000
       bits:
       - monday_a_2330_0000
       - monday_a_2300_2330
@@ -130,7 +127,6 @@ registers:
     - id: 129
       type: bits
       ha: true
-      name: tuesday_a_0000_0800
       bits:
       - tuesday_a_0730_0800
       - tuesday_a_0700_0730
@@ -151,7 +147,6 @@ registers:
     - id: 130
       type: bits
       ha: true
-      name: tuesday_a_0800_1600
       bits:
       - tuesday_a_1530_1600
       - tuesday_a_1500_1530
@@ -172,7 +167,6 @@ registers:
     - id: 131
       type: bits
       ha: true
-      name: tuesday_a_1600_0000
       bits:
       - tuesday_a_2330_0000
       - tuesday_a_2300_2330
@@ -193,7 +187,6 @@ registers:
     - id: 132
       type: bits
       ha: true
-      name: wednesday_a_0000_0800
       bits:
       - wednesday_a_0730_0800
       - wednesday_a_0700_0730
@@ -214,7 +207,6 @@ registers:
     - id: 133
       type: bits
       ha: true
-      name: wednesday_a_0800_1600
       bits:
       - wednesday_a_1530_1600
       - wednesday_a_1500_1530
@@ -235,7 +227,6 @@ registers:
     - id: 134
       type: bits
       ha: true
-      name: wednesday_a_1600_0000
       bits:
       - wednesday_a_2330_0000
       - wednesday_a_2300_2330
@@ -256,7 +247,6 @@ registers:
     - id: 135
       type: bits
       ha: true
-      name: thursday_a_0000_0800
       bits:
       - thursday_a_0730_0800
       - thursday_a_0700_0730
@@ -277,7 +267,6 @@ registers:
     - id: 136
       type: bits
       ha: true
-      name: thursday_a_0800_1600
       bits:
       - thursday_a_1530_1600
       - thursday_a_1500_1530
@@ -298,7 +287,6 @@ registers:
     - id: 137
       type: bits
       ha: true
-      name: thursday_a_1600_0000
       bits:
       - thursday_a_2330_0000
       - thursday_a_2300_2330
@@ -319,7 +307,6 @@ registers:
     - id: 138
       type: bits
       ha: true
-      name: friday_a_0000_0800
       bits:
       - friday_a_0730_0800
       - friday_a_0700_0730
@@ -340,7 +327,6 @@ registers:
     - id: 139
       type: bits
       ha: true
-      name: friday_a_0800_1600
       bits:
       - friday_a_1530_1600
       - friday_a_1500_1530
@@ -361,7 +347,6 @@ registers:
     - id: 140
       type: bits
       ha: true
-      name: friday_a_1600_0000
       bits:
       - friday_a_2330_0000
       - friday_a_2300_2330
@@ -382,7 +367,6 @@ registers:
     - id: 141
       type: bits
       ha: true
-      name: saturday_a_0000_0800
       bits:
       - saturday_a_0730_0800
       - saturday_a_0700_0730
@@ -403,7 +387,6 @@ registers:
     - id: 142
       type: bits
       ha: true
-      name: saturday_a_0800_1600
       bits:
       - saturday_a_1530_1600
       - saturday_a_1500_1530
@@ -424,7 +407,6 @@ registers:
     - id: 143
       type: bits
       ha: true
-      name: saturday_a_1600_0000
       bits:
       - saturday_a_2330_0000
       - saturday_a_2300_2330
@@ -445,7 +427,6 @@ registers:
     - id: 144
       type: bits
       ha: true
-      name: sunday_a_0000_0800
       bits:
       - sunday_a_0730_0800
       - sunday_a_0700_0730
@@ -466,7 +447,6 @@ registers:
     - id: 145
       type: bits
       ha: true
-      name: sunday_a_0800_1600
       bits:
       - sunday_a_1530_1600
       - sunday_a_1500_1530
@@ -487,7 +467,6 @@ registers:
     - id: 146
       type: bits
       ha: true
-      name: sunday_a_1600_0000
       bits:
       - sunday_a_2330_0000
       - sunday_a_2300_2330
@@ -508,7 +487,6 @@ registers:
     - id: 189
       type: bits
       ha: true
-      name: monday_acs_0000_0800
       bits:
       - monday_acs_0730_0800
       - monday_acs_0700_0730
@@ -529,7 +507,6 @@ registers:
     - id: 190
       type: bits
       ha: true
-      name: monday_acs_0800_1600
       bits:
       - monday_acs_1530_1600
       - monday_acs_1500_1530
@@ -550,7 +527,6 @@ registers:
     - id: 191
       type: bits
       ha: true
-      name: monday_acs_1600_0000
       bits:
       - monday_acs_2330_0000
       - monday_acs_2300_2330
@@ -571,7 +547,6 @@ registers:
     - id: 192
       type: bits
       ha: true
-      name: tuesday_acs_0000_0800
       bits:
       - tuesday_acs_0730_0800
       - tuesday_acs_0700_0730
@@ -592,7 +567,6 @@ registers:
     - id: 193
       type: bits
       ha: true
-      name: tuesday_acs_0800_1600
       bits:
       - tuesday_acs_1530_1600
       - tuesday_acs_1500_1530
@@ -613,7 +587,6 @@ registers:
     - id: 194
       type: bits
       ha: true
-      name: tuesday_acs_1600_0000
       bits:
       - tuesday_acs_2330_0000
       - tuesday_acs_2300_2330
@@ -634,7 +607,6 @@ registers:
     - id: 195
       type: bits
       ha: true
-      name: wednesday_acs_0000_0800
       bits:
       - wednesday_acs_0730_0800
       - wednesday_acs_0700_0730
@@ -655,7 +627,6 @@ registers:
     - id: 196
       type: bits
       ha: true
-      name: wednesday_acs_0800_1600
       bits:
       - wednesday_acs_1530_1600
       - wednesday_acs_1500_1530
@@ -676,7 +647,6 @@ registers:
     - id: 197
       type: bits
       ha: true
-      name: wednesday_acs_1600_0000
       bits:
       - wednesday_acs_2330_0000
       - wednesday_acs_2300_2330
@@ -697,7 +667,6 @@ registers:
     - id: 198
       type: bits
       ha: true
-      name: thursday_acs_0000_0800
       bits:
       - thursday_acs_0730_0800
       - thursday_acs_0700_0730
@@ -718,7 +687,6 @@ registers:
     - id: 199
       type: bits
       ha: true
-      name: thursday_acs_0800_1600
       bits:
       - thursday_acs_1530_1600
       - thursday_acs_1500_1530
@@ -739,7 +707,6 @@ registers:
     - id: 200
       type: bits
       ha: true
-      name: thursday_acs_1600_0000
       bits:
       - thursday_acs_2330_0000
       - thursday_acs_2300_2330
@@ -760,7 +727,6 @@ registers:
     - id: 201
       type: bits
       ha: true
-      name: friday_acs_0000_0800
       bits:
       - friday_acs_0730_0800
       - friday_acs_0700_0730
@@ -781,7 +747,6 @@ registers:
     - id: 202
       type: bits
       ha: true
-      name: friday_acs_0800_1600
       bits:
       - friday_acs_1530_1600
       - friday_acs_1500_1530
@@ -802,7 +767,6 @@ registers:
     - id: 203
       type: bits
       ha: true
-      name: friday_acs_1600_0000
       bits:
       - friday_acs_2330_0000
       - friday_acs_2300_2330
@@ -823,7 +787,6 @@ registers:
     - id: 204
       type: bits
       ha: true
-      name: saturday_acs_0000_0800
       bits:
       - saturday_acs_0730_0800
       - saturday_acs_0700_0730
@@ -844,7 +807,6 @@ registers:
     - id: 205
       type: bits
       ha: true
-      name: saturday_acs_0800_1600
       bits:
       - saturday_acs_1530_1600
       - saturday_acs_1500_1530
@@ -865,7 +827,6 @@ registers:
     - id: 206
       type: bits
       ha: true
-      name: saturday_acs_1600_0000
       bits:
       - saturday_acs_2330_0000
       - saturday_acs_2300_2330
@@ -886,7 +847,6 @@ registers:
     - id: 207
       type: bits
       ha: true
-      name: sunday_acs_0000_0800
       bits:
       - sunday_acs_0730_0800
       - sunday_acs_0700_0730
@@ -907,7 +867,6 @@ registers:
     - id: 208
       type: bits
       ha: true
-      name: sunday_acs_0800_1600
       bits:
       - sunday_acs_1530_1600
       - sunday_acs_1500_1530
@@ -928,7 +887,6 @@ registers:
     - id: 209
       type: bits
       ha: true
-      name: sunday_acs_1600_0000
       bits:
       - sunday_acs_2330_0000
       - sunday_acs_2300_2330

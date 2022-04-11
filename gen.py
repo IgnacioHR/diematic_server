@@ -72,7 +72,6 @@ class ConfigBuilder:
 								'id': register,
 								'type': 'bits',
 								'ha': True,
-								'name': f"{day}_{cname}_{starthour:02}00_{endhour:02}00",
 								'bits': [],
 							}
 							register += 1

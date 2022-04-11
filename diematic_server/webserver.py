@@ -68,12 +68,12 @@ class DiematicWebRequestHandler:
 	def __init__(self, boiler) -> None:
 		DiematicWebRequestHandler.parameter_names.clear()
 		for register in boiler.index:
-			if 'name' in list(register):
+			if 'type' in list(register) and register['type'] == 'bits':
+				for bit in register['bits']:
+					if bit != "io_unused":
+						DiematicWebRequestHandler.parameter_names.append(bit)
+			elif 'name' in list(register):
 				DiematicWebRequestHandler.parameter_names.append(register['name'])
-				if 'type' in list(register) and register['type'] == 'bits':
-					for bit in register['bits']:
-						if bit != "io_unused":
-							DiematicWebRequestHandler.parameter_names.append(bit)
 		DiematicWebRequestHandler.parameter_names.sort()
 
 	@routes.get('/diematic/parameters')

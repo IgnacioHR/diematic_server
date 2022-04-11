@@ -18,16 +18,17 @@ class Boiler:
             if 'influx' in register:
                 influx = register['influx']
 
-            if 'name' in register and 'id' in register:
+            if 'type' in register and register['type'] == 'bits':
+                for varname in register['bits']:
+                    self._init_register_value(varname, register['id'], influx)
+                    self.attribute_list.append(varname)
+            
+            elif 'name' in register and 'id' in register:
                 is_bits = 'type' in register and register['type'] == 'bits'
 
                 self._init_register_value(register['name'], register['id'], influx and not is_bits)
                 self.attribute_list.append(register['name'])
 
-                if 'type' in register and register['type'] == 'bits':
-                    for varname in register['bits']:
-                        self._init_register_value(varname, register['id'], influx)
-                        self.attribute_list.append(varname)
 
     def _init_register_value(self, varname, id, influx):
         setattr(self, varname, {'name': varname, 'status': 'init', 'value': None, 'id': id, 'influx': influx})
