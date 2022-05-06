@@ -1,4 +1,4 @@
-logging: critical
+logging: info
 
 # Boiler
 # This identifies the boiler uniquely. In case you have several daemons installed for multiple boilers
@@ -1088,10 +1088,6 @@ registers:
       type: DiematicOneDecimal
       desc: Day B
       unit: CelsiusTemperature
-      ha: true
-      step: 0.5
-      min: 10.0
-      max: 30.0
     - id: 657
       name: temp_noche_b
       type: DiematicOneDecimal

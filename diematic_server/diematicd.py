@@ -221,7 +221,10 @@ class DiematicApp:
 
     def main_program_loop(self) -> NoReturn:
         while True:
-            self.do_main_program()
+            try:
+                self.do_main_program()
+            except Exception as ex:
+                log.error('Exception inside do_main_program {err}'.format(err=ex))
             time.sleep(60) # a minute
 
     def startWebServer(self):
@@ -292,7 +295,8 @@ class DiematicApp:
 
         #parsing registers to push data in Object attributes
         self.MyBoiler.browse_registers()
-        log.info("Dumping values\n" + self.MyBoiler.dump())
+        log.info("Values read")
+        log.debug("Dumping values\n" + self.MyBoiler.dump())
 
 
         #pushing data to influxdb
@@ -314,6 +318,7 @@ class DiematicApp:
             log.debug("Write points: {0}".format(influx_json_body))
             try:
                 influx_client.write_points(influx_json_body, time_precision='ms')
+                log.info("Values written to influxdb")
             except InfluxDBClientError as e:
                 log.error(e)
 

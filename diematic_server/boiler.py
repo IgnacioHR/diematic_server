@@ -1,6 +1,7 @@
 import logging
 
 from datetime import datetime
+import threading
 
 log = logging.getLogger()
 
@@ -13,24 +14,27 @@ class Boiler:
         self.registers = []
         self.attribute_list = []
         self.index = index
-        for register in self.index:
-            influx = True
-            if 'influx' in register:
-                influx = register['influx']
+        self.lock = threading.Lock()
+        with self.lock: 
+            for register in self.index:
+                influx = True
+                if 'influx' in register:
+                    influx = register['influx']
 
-            if 'type' in register and register['type'] == 'bits':
-                for varname in register['bits']:
-                    self._init_register_value(varname, register['id'], influx)
-                    self.attribute_list.append(varname)
-            
-            elif 'name' in register and 'id' in register:
-                is_bits = 'type' in register and register['type'] == 'bits'
+                if 'type' in register and register['type'] == 'bits':
+                    for varname in register['bits']:
+                        self._init_register_value(varname, register['id'], influx)
+                        self.attribute_list.append(varname)
+                
+                elif 'name' in register and 'id' in register:
+                    is_bits = 'type' in register and register['type'] == 'bits'
 
-                self._init_register_value(register['name'], register['id'], influx and not is_bits)
-                self.attribute_list.append(register['name'])
+                    self._init_register_value(register['name'], register['id'], influx and not is_bits)
+                    self.attribute_list.append(register['name'])
 
 
     def _init_register_value(self, varname, id, influx):
+        # this method is protected by self.lock
         setattr(self, varname, {'name': varname, 'status': 'init', 'value': None, 'id': id, 'influx': influx})
 
 #       {
@@ -41,7 +45,10 @@ class Boiler:
 #           'newvalue': this is the new value to be written, checked etc. status goes to 'read' when 'newvalue' exist and is equal to 'registervalue'
 #           'error': error message after writing a value and a failure received
 #       }
+
+
     def _set_register_value(self, varname, registervalue):
+        # this method is protected by self.lock
         previousValue = getattr(self, varname, {'name': varname, 'status': 'init', 'value': registervalue})
         varvalue = previousValue.copy()
         prestatus = previousValue.get('status')
@@ -265,13 +272,14 @@ class Boiler:
         return None
 
     def _update_register(self, register):
+        # this method is protected by self.lock
         if not isinstance(register['id'], int):
             return
         register_value = self.registers[register['id']]
         if register_value is None:
             log.debug('Browsing register id {:d} value: None'.format(register['id']))
             return
-        log.info('Browsing register id {:d} value: {:#04x}'.format(register['id'], register_value))
+        log.debug('Browsing register id {:d} value: {:#04x}'.format(register['id'], register_value))
         if register['type'] == 'bits':
             if 'name' in register:
                 varname = register.get('name')
@@ -300,8 +308,9 @@ class Boiler:
                         self._set_register_value(varname, register_value)
 
     def browse_registers(self):
-        for register in self.index:
-            self._update_register(register)
+        with self.lock:
+            for register in self.index:
+                self._update_register(register)
 
     def dump_registers(self):
         output = ''
@@ -313,13 +322,14 @@ class Boiler:
         return output
 
     def fetch_data(self):
-        output = { }
-        output['uuid'] = self.uuid
-        for varname in self.attribute_list:
-            register = getattr(self, varname)
-            if register['influx']:
-                output[varname] = register['value']
-        return output
+        with self.lock:
+            output = { }
+            output['uuid'] = self.uuid
+            for varname in self.attribute_list:
+                register = getattr(self, varname)
+                if register['influx']:
+                    output[varname] = register['value']
+            return output
 
     def dump(self):
         output = ''
@@ -331,76 +341,82 @@ class Boiler:
         return self.fetch_data()
 
     def set_write_pending(self, varname, newvalue):
-        value = getattr(self, varname, None)
-        if value is None:
-            return
-        value['newvalue'] = newvalue
-        value['status'] = 'writepending'
-        setattr(self, varname, value)
+        with self.lock:
+            value = getattr(self, varname, None)
+            if value is None:
+                return
+            value['newvalue'] = newvalue
+            value['status'] = 'writepending'
+            setattr(self, varname, value)
 
     def next_write(self):
         """ returns the next register that contains a pending write or None
         """
-        for varname in self.attribute_list:
-            value = getattr(self, varname, {})
-            if 'status' in value and value['status'] == 'writepending':
-                value['status'] = 'checking'
-                return value
-        return None
+        with self.lock:
+            for varname in self.attribute_list:
+                value = getattr(self, varname, {})
+                if 'status' in value and value['status'] == 'writepending':
+                    value['status'] = 'checking'
+                    return value
+            return None
 
     def prepare_write(self, write):
         """ returns a dictionary with two keys:
             the 'address' key contains the register address to write to,
             the 'value' key contains the new value
         """
-        register = self._register(write['name'])
-        encodedValue = write['newvalue']
-        if register['type'] == 'bits':
-            overallvalue = 0
-            for i in range(len(register['bits'])):
-                bit_varname = register['bits'][i]
-                if bit_varname == 'io_unused':
-                    continue
-                if bit_varname != write['name']:
-                    bit_value = getattr(self, bit_varname)['value'] << i
-                    overallvalue = overallvalue | bit_value
-                else:
-                    bit_value = write['newvalue'] << i
-                    overallvalue = overallvalue | bit_value
-            encodedValue = overallvalue
-        if register['type'] == 'DiematicOneDecimal':
-            encodedValue = self._encode_decimal(encodedValue, 1)
-        elif register['type'] == 'DiematicModeFlag':
-            encodedValue = self._encode_modeflag(encodedValue)
-        elif register['type'] == 'ErrorCode':
-            raise ValueError('Cannot write read only value')
-        elif register['type'] == 'DiematicCircType':
-            encodedValue = self._encode_circtype(encodedValue)
-        elif register['type'] == 'DiematicProgram':
-            encodedValue = self._encode_program(encodedValue)
+        with self.lock:
+            register = self._register(write['name'])
+            encodedValue = write['newvalue']
+            if register['type'] == 'bits':
+                overallvalue = 0
+                for i in range(len(register['bits'])):
+                    bit_varname = register['bits'][i]
+                    if bit_varname == 'io_unused':
+                        continue
+                    if bit_varname != write['name']:
+                        bit_value = getattr(self, bit_varname)['value'] << i
+                        overallvalue = overallvalue | bit_value
+                    else:
+                        bit_value = write['newvalue'] << i
+                        overallvalue = overallvalue | bit_value
+                encodedValue = overallvalue
+            if register['type'] == 'DiematicOneDecimal':
+                encodedValue = self._encode_decimal(encodedValue, 1)
+            elif register['type'] == 'DiematicModeFlag':
+                encodedValue = self._encode_modeflag(encodedValue)
+            elif register['type'] == 'ErrorCode':
+                raise ValueError('Cannot write read only value')
+            elif register['type'] == 'DiematicCircType':
+                encodedValue = self._encode_circtype(encodedValue)
+            elif register['type'] == 'DiematicProgram':
+                encodedValue = self._encode_program(encodedValue)
 
-        return {
-            "address": register['id'],
-            "value": encodedValue
-        }
+            return {
+                "address": register['id'],
+                "value": encodedValue
+            }
 
     def write_error(self, varname, message):
         """ The write operation failed to compare values """
-        value = getattr(self, varname, {})
-        value['error'] = message
-        value['status'] = 'error'
+        with self.lock:
+            value = getattr(self, varname, {})
+            value['error'] = message
+            value['status'] = 'error'
 
     def clear_error(self, varname):
         """ clear error on varname """
-        value = getattr(self, varname, {})
-        value.pop('error', None)
-        value.pop('newvalue', None)
-        value['status'] = 'read'
+        with self.lock:
+            value = getattr(self, varname, {})
+            value.pop('error', None)
+            value.pop('newvalue', None)
+            value['status'] = 'read'
 
     def write_ok(self, varname):
         """ write operation succeed """
-        value = getattr(self, varname, {})
-        newvalue = value.pop('newvalue')
-        value.pop('error', None)
-        value['value'] = newvalue
-        value['status'] = 'read'
+        with self.lock:
+            value = getattr(self, varname, {})
+            newvalue = value.pop('newvalue')
+            value.pop('error', None)
+            value['value'] = newvalue
+            value['status'] = 'read'
