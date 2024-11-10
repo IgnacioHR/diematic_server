@@ -42,6 +42,15 @@ influxdb:
     password: d*******
     database: diematic
 
+mqtt:
+    broker: your broker server
+    port: 1883
+    user: your mqtt user, optional
+    password: your mqtt user credentials
+    retain: false
+    tls: false
+    topic: diematic/boiler
+
 registers:
     - id: 8
       name: sum_win

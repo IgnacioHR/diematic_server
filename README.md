@@ -1,9 +1,11 @@
 # diematic
 
 A Unix service written in Python to monitor De Dietrich boiler equiped with Diematic system using Modbus RS-845 protocol.
-The service reads data from the boiler and makes it available to be consumed in two ways:
+The service reads data from the boiler and makes it available to be consumed in three ways:
 Optionally, the values fetched from the boiler are sent to an InfluxDB database.
+Optionally, the values fetched from the boiler are sent to an MQTT broker. (TODO)
 Optionally, a RESTful web server is installed and values can be obtained using GET and modified using POST requests.
+Optionally, boiler parameters can be changed from the mqtt topics (TODO)
 
 ![Screenshot](images/web-requests.png?raw=true)
 ![Screenshot](images/chronograf_screenshot.png?raw=true)
@@ -34,7 +36,7 @@ systemctl start diematicd
 ## Test
 Run `python3 diematicd.py --help`
 ```
-usage: diematicd.py [-h] [-b {none,influxdb}] [-d DEVICE] [-f]
+usage: diematicd.py [-h] [-b {none,configured,influxdb,mqtt}] [-d DEVICE] [-f]
                     [-l {critical,error,warning,info,debug}] [-c CONFIG]
                     [-w HOSTNAME] [-p PORT] [-s {loop,web,both}] [-a ADDRESS]
                     [-t {Raw,DiematicOneDecimal,DiematicModeFlag,ErrorCode,DiematicCircType,DiematicProgram,bit0,bit1,bit2,bit3,bit4,bit5,bit6,bit7,bit8,bit9,bitA,bitB,bitC,bitD,bitE,bitF}]

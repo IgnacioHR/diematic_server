@@ -4,3 +4,4 @@ influxdb==5.2.3
 pymodbus==2.2.0
 python-daemon==2.3.0
 PyYAML==5.4
+paho-mqtt=2.1.0

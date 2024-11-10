@@ -9,6 +9,7 @@ See and respect licensing terms
 """
 import logging
 from typing import NoReturn
+import json
 import yaml
 import os
 import signal
@@ -25,8 +26,11 @@ from influxdb.exceptions import InfluxDBClientError
 from daemon import DaemonContext
 from daemon import pidfile
 from aiohttp import web
+
+import paho.mqtt.client as mqtt
 import asyncio
 import concurrent.futures
+import ssl
 
 from webserver import DiematicWebRequestHandler
 from filelck import FileLock, FileLockException
@@ -300,7 +304,7 @@ class DiematicApp:
 
 
         #pushing data to influxdb
-        if self.args.backend and self.args.backend == 'influxdb':
+        if self.args.backend and (self.args.backend == 'influxdb' or (self.args.backend == 'configured' and 'influxdb' in self.cfg)):
             timestamp = int(time.time() * 1000) #milliseconds
             influx_json_body = [
             {
@@ -321,6 +325,18 @@ class DiematicApp:
                 log.info("Values written to influxdb")
             except InfluxDBClientError as e:
                 log.error(e)
+        
+        if self.args.backend and (self.args.backend == 'mqtt' or (self.args.backend == 'configured' and 'mqtt' in self.cfg)):
+            if self.mqtt_connected:
+                try:
+                    log.debug('Sending values to mqtt')
+                    mqtt_json_body = json.dumps(self.MyBoiler.fetch_data(), indent=2)
+                    self.mqttc.publish(self.cfg['mqtt']['topic'],mqtt_json_body).wait_for_publish()
+                    log.info('Values published to mqtt')
+                except RuntimeError as e:
+                    log.error('Can''t publish due to error:',e)
+            else:
+                log.error('Still not connected to mqtt broker')
 
     def read_config_file(self):
         # --------------------------------------------------------------------------- #
@@ -587,6 +603,32 @@ class DiematicApp:
             raise ValueError('Modbus device not set')
         self.shall_create_boiler = True
 
+        if 'mqtt' in self.cfg:
+            try:
+                mqttk = self.cfg['mqtt']
+                self.mqtt_connected = False
+                client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+                self.mqttc = client
+                client.on_connect = on_mqtt_connect
+                client.on_disconnect = on_mqtt_disconnect
+                tls = 'tls' in mqttk
+                if tls:
+                    client.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2)
+                auth = 'user' in mqttk
+                if auth:
+                    client.username_pw_set(mqttk['user'], mqttk['password'])
+                connection = self.mqttc.connect(
+                    mqttk['broker'], 
+                    mqttk.get('port', 8883 if tls else 1883), 
+                    60
+                )
+                if connection == mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
+                    client.loop_start()
+                else:
+                    log.error('Can''t connect to mqtt broker, error code is {connection}')
+            except Exception as e:
+                log.error('mqtt found in configuration file but connection raised the following error:',e)
+
     def _restart(self):
         """ Stop, then start. """
         self._stop()
@@ -696,9 +738,11 @@ def parse_args(app, argv=None):
     # --------------------------------------------------------------------------- #
     # retrieve command line arguments
     # --------------------------------------------------------------------------- #
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Send data from Diematic boiler to web, influx database or mqtt broker"
+    )
     parser.add_argument(dest='action', choices=['status', 'start', 'stop', 'restart', 'reload', 'runonce', 'readregister', 'writeregister'], default="runonce", help="action to take", type=ActionType)
-    parser.add_argument("-b", "--backend", choices=['none', 'influxdb'], default='influxdb', help="select data backend (default is influxdb)")
+    parser.add_argument("-b", "--backend", choices=['none', 'configured', 'influxdb', 'mqtt'], default='configured', help="select data backend (default is any configured in the configuration file)")
     parser.add_argument("-d", "--device", help="define modbus device")
     parser.add_argument("-f", "--foreground", help="Run in the foreground do not detach process", action="store_true")
     parser.add_argument("-l", "--logging", choices=['critical', 'error', 'warning', 'info', 'debug'], help="define logging level (default is critical)")
@@ -785,6 +829,14 @@ def is_process_already_running(pidfile):
             pass
 
     return result
+
+def on_mqtt_connect(client, userdata, flags, rc, properties):
+    app.mqtt_connected = True
+    log.info('MQTT Connected successfully')
+
+def on_mqtt_disconnect(client, userdata, flags, rc, properties):
+    app.mqtt_connected = False
+    log.info('MQTT Disconncted!')
 
 if __name__ == '__main__':
     app = DiematicApp()
