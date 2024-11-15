@@ -196,7 +196,7 @@ class DiematicWebRequestHandler:
 		return web.Response()
 
 	@routes.post('/diematic/parameters/{paramName}/resume')
-	async def set_param(request):
+	async def set_param_resume(request):
 		param_name = request.match_info.get('paramName')
 		if not param_name in DiematicWebRequestHandler.parameter_names:
 			return web.Response(status=422, reason=f'\'{param_name}\' is an invalid parameter')

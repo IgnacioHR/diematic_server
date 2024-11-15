@@ -2,6 +2,7 @@ import logging
 
 from datetime import datetime
 import threading
+from typing import Any, Dict
 
 log = logging.getLogger()
 
@@ -49,9 +50,9 @@ class Boiler:
 
     def _set_register_value(self, varname, registervalue):
         # this method is protected by self.lock
-        previousValue = getattr(self, varname, {'name': varname, 'status': 'init', 'value': registervalue})
-        varvalue = previousValue.copy()
-        prestatus = previousValue.get('status')
+        previous_value = getattr(self, varname, {'name': varname, 'status': 'init', 'value': registervalue})
+        varvalue = previous_value.copy()
+        prestatus = previous_value.get('status')
         if prestatus == 'init':
             status = 'read'
         else:
@@ -61,6 +62,47 @@ class Boiler:
             varvalue['read'] = datetime.now().isoformat()
         varvalue['status'] = status
         setattr(self, varname, varvalue)
+
+    def _add_register_field(self, varname, field, value):
+        previous_value = getattr(self, varname)
+        new_value = previous_value.copy()
+        new_value[field] = value
+        setattr(self, varname, new_value)
+
+    def _decode_model(self, value_int: int) -> str:
+        models = {
+            0: '3-25LP',
+            1: '3-15LP',
+            2: '3-25SOLO',
+            3: '3-25K',
+            4: '3-15SOLO',
+            30: 'MC 35 E',
+            5: '3-E25LP',
+            31: 'MC 45',
+            6: 'DOMOLIGHT',
+            32: 'MC 65',
+            7: '3-35', 
+            33: 'MC 90',
+            8: '3-50',
+            34: 'C210',
+            9: '3-25 BIC',
+            35: 'C310',
+            10: '3-15ECO',
+            36: 'C610',
+            11: '3-25ECO',
+            37: 'C230',
+            12: '3-35ECO',
+            13: '3-50ECO',
+            14: '3-65ECO',
+            40: 'Robur HP',
+            20: 'Diematic 3',
+            21: 'Diematic m2',
+            22: 'Diematic m3',
+            23: 'MIT',
+            24: 'D4',
+            25: 'MB/OT interface'
+        }
+        return models.get(value_int,'Unknown')
 
     def _decode_decimal(self, value_int, decimals=0):
         if (value_int == 65535):
@@ -304,8 +346,12 @@ class Boiler:
                         self._set_register_value(varname, self._decode_circtype(register_value))
                     elif register['type'] == 'DiematicProgram':
                         self._set_register_value(varname, self._decode_program(register_value))
+                    elif register['type'] == 'Model':
+                        self._set_register_value(varname, self._decode_model(register_value))
                     else:
                         self._set_register_value(varname, register_value)
+                if 'desc' in register:
+                    self._add_register_field(varname, 'desc', register['desc'])
 
     def browse_registers(self):
         with self.lock:
@@ -321,7 +367,10 @@ class Boiler:
                 output += "{:d}: {:#04x}\n".format(id, self.registers[id])
         return output
 
-    def fetch_data(self):
+    def fetch_data(self) -> Dict[str, Any]:
+        """ 
+        Returns a dictionary of values from the boiler. 
+        """
         with self.lock:
             output = { }
             output['uuid'] = self.uuid
@@ -330,6 +379,12 @@ class Boiler:
                 if register['influx']:
                     output[varname] = register['value']
             return output
+
+    def get_register_field(self, varname: str, field: str) -> str:
+        register = getattr(self, varname, None)
+        if register is None or not field in register:
+            return f'No value set for field {field} in register {varname}'
+        return register.get(field)
 
     def dump(self):
         output = ''
@@ -340,14 +395,17 @@ class Boiler:
     def toJSON(self):
         return self.fetch_data()
 
-    def set_write_pending(self, varname, newvalue):
+    def set_write_pending(self, varname, newvalue, callback = None):
         with self.lock:
             value = getattr(self, varname, None)
             if value is None:
                 return
             value['newvalue'] = newvalue
             value['status'] = 'writepending'
+            if callback is not None:
+                value['callback'] = callback
             setattr(self, varname, value)
+                
 
     def next_write(self):
         """ returns the next register that contains a pending write or None
@@ -403,6 +461,8 @@ class Boiler:
             value = getattr(self, varname, {})
             value['error'] = message
             value['status'] = 'error'
+            if 'callback' in value:
+                value['callback'] = None
 
     def clear_error(self, varname):
         """ clear error on varname """
@@ -411,6 +471,8 @@ class Boiler:
             value.pop('error', None)
             value.pop('newvalue', None)
             value['status'] = 'read'
+            if 'callback' in value:
+                value['callback'] = None
 
     def write_ok(self, varname):
         """ write operation succeed """
@@ -420,3 +482,7 @@ class Boiler:
             value.pop('error', None)
             value['value'] = newvalue
             value['status'] = 'read'
+            if 'callback' in value:
+                value['callback']()
+                value['callback'] = None
+

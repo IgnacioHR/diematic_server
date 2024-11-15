@@ -5,6 +5,7 @@ logging: info
 # centralized in the same Home Assistant you might consider using a differnet uuid on each daemon
 boiler:
     uuid: 1315878b-5e6f-4bf4-8164-f9050c6bfc4c
+    name: Caldera
 
 # Modbus connection parameters
 # The 'register_ranges' indicates the ranges of ids to be read
@@ -25,9 +26,11 @@ modbus:
       - [ 189, 209]
       - [ 231, 232]
       - [ 263, 264]
-      - [ 274, 278]
+      - [ 272, 278]
       - [ 282, 283]
       - [ 296, 300]
+      - [ 305, 305]
+      - [ 457, 457]
       - [ 465, 466]
       - [ 474, 476]
       - [ 503, 504]
@@ -42,37 +45,94 @@ influxdb:
     password: d*******
     database: diematic
 
-mqtt:
-    broker: your broker server
-    port: 1883
-    user: your mqtt user, optional
-    password: your mqtt user credentials
-    retain: false
-    tls: false
-    topic: diematic/boiler
+http:
+    hostname: 0.0.0.0
+    port: 8080
+
+# mqtt:
+#     broker: your broker server
+#     port: 1883
+#     user: your mqtt user, optional
+#     password: your mqtt user credentials
+#     retain: false
+#     tls: false
+#     topic: diematic2mqtt/boiler
+#     discovery:
+#       prefix: homeassistant
 
 registers:
     - id: 8
       name: sum_win
-      type: DiematicOneDecimal
       desc: Summer/Winter temperature set point
-      unit: CelsiusTemperature
+      type: DiematicOneDecimal
+      component: number
+      unit: °C
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
       ha: true
+      min: 15
+      max: 30.5
+      step: 0.5
     - id: 9
       name: outdoor_anti_freeze
+      desc: Outdoor temperature activating antifreeze
       type: DiematicOneDecimal
+      component: number
+      unit: °C
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
+      min: -8
+      max: 10
+      step: 1
     - id: 10
       name: night_mode
+      desc: Energy savings
       type: Raw
+      component: select
+      entity_category: config
+      options:
+        - "No"
+        - "Yes"
+        - "Unknown"
+      icon: mdi:sprout
+      value_template: "{{ 'No' if value_json.night_mode | int == 0 else ('Yes' if value_json.night_mode | int == 1 else 'Unknown') }}"
+      command_template: "{{ 0 if value == 'No' else 1 if value == 'Yes' else None }}"
     - id: 11
       name: delay_stop_heating_pump
+      desc: Delay before stop of the heating pump in minutes
       type: Raw
+      component: number
+      unit: m
+      icon: mdi:timer
+      entity_category: config
+      min: 0
+      max: 15
+      step: 1
     - id: 72
-      name: histeresis_a
+      name: hysteresis_a
+      desc: Hysteresis A
       type: DiematicOneDecimal
+      component: number
+      device_class: temperature
+      unit: K
+      icon: mdi:chart-bell-curve-cumulative
+      entity_category: config
+      min: 4
+      max: 10
+      step: 1
     - id: 102
       name: outdoor_average_temp
+      desc: Read of the average outdoor temperature
       type: DiematicOneDecimal
+      component: sensor
+      unit: °C
+      icon: mdi:home-thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 126
       type: bits
       ha: true
@@ -915,40 +975,256 @@ registers:
       - sunday_acs_1600_1630
     - id: 231
       name: current_prog_a
+      desc: Choice of the time program applied (P1-P4) Circ A
       type: DiematicProgram
+      component: select
+      entity_category: config
+      options:
+        - "P1"
+        - "P2"
+        - "P3"
+        - "P4"
+        - "Unknown"
+      icon: mdi:progress-upload
+      value_template: "{{ ('P'+(value_json.current_prog_a | string)) if value_json.current_prog_a > 0 else 'Unknown' }}"
+      command_template: "{{ value[1:] | int }}"
     - id: 263
       name: language
+      desc: Language
       type: Raw
+      component: select
+      entity_category: config
+      options:
+        - "French"
+        - "German"
+        - "English"
+        - "Polsky"
+        - "Italian"
+        - "Spanish"
+        - "Dutch"
+        - "Russian"
+        - "Turquish"
+        - "Cesky"
+        - "Uknown"
+      icon: mdi:translate
+      value_template: >-
+        {% set languages = ["French", "German", "English", "Polsky", "Italiano", "Spanish", "Dutch", "Russian", "Turquish", "Cesky"] %}
+        {{ languages[value_json.language | int] if value_json.language | int >= 0 and value_json.language | int < languages | length else "Unknown" }}
+      command_template: >-
+        {% set languages = ["French", "German", "English", "Polsky", "Italiano", "Spanish", "Dutch", "Russian", "Turquish", "Cesky"] %}
+        {{ languages.index(value) if value in languages else None }}
+    - id: 272
+      name: timer_gene_p
+      desc: Minimum post operating time of the generator pump
+      type: Raw
+      component: number
+      unit: m
+      icon: mdi:timer
+      entity_category: config
+      min: 1
+      max: 30
+      step: 1
     - id: 274
       name: cal_temp_ext
+      desc: Calibration offset external temperature
       type: DiematicOneDecimal
+      component: number
+      unit: K
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
+      ha: true
+      min: -5
+      max: 5
+      step: 0.1
     - id: 275
       name: cal_temp_room_a
+      desc: Calibration offset Circuit A
       type: DiematicOneDecimal
-      desc: Circuit A calibration offset
-      unit: CelsiusTemperature
+      component: number
+      unit: K
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
       ha: true
+      min: -5
+      max: 5
+      step: 0.1
     - id: 276
       name: cal_temp_room_b
+      desc: Calibration offset Circuit B
       type: DiematicOneDecimal
+      component: number
+      unit: K
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
+      ha: true
+      min: -5
+      max: 5
+      step: 0.1
     - id: 277
       name: cal_temp_room_c
+      desc: Calibration offset Circuit C
       type: DiematicOneDecimal
+      component: number
+      unit: K
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
+      ha: true
+      min: -5
+      max: 5
+      step: 0.1
     - id: 282
       name: anticip_a
+      desc: Activation and adjustment of the anticipation time
       type: DiematicOneDecimal
+      component: number
+      unit: dH
+      icon: mdi:knob
+      entity_category: config
+      device_class: duration
+      ha: true
+      min: 0
+      max: 101
+      step: 1
     - id: 296
       name: circ_a_type
+      desc: Circuit A type
       type: DiematicCircType
+      component: select
+      entity_category: config
+      options:
+        - "Disable"
+        - "Direct"
+        - "3 Way valve"
+        - "Direct +"
+        - "3 Way valve +"
+        - "Swimmingpool"
+        - "Uknown"
+      icon: mdi:tune
+      value_template: >-
+        {% set values = {
+          "DISABLE": "Disable",
+          "DIRECT": "Direct",
+          "3WV": "3 Way valve",
+          "DIRECT+": "Direct+",
+          "3WV+": "3 Way valve +",
+          "SWIM.": "Swimmingpool",
+          "UNKNOWN": "Unknown"
+        } %}
+        {{ values.get(value_json.circ_a_type, "Unknown") }}
+      command_template: >-
+        {% set values = {
+          "Disable": "DISABLE",
+          "Direct": "DIRECT",
+          "3 Way valve": "3WV",
+          "Direct+": "DIRECT+",
+          "3 Way valve +": "3WV+",
+          "Swimmingpool": "SWIM.",
+          "Unknown": "UNKNOWN"
+        } %}
+        {{ values.get(value, "UNKNOWN") }}
     - id: 298
       name: temperature_min_circuit_a
+      desc: Minimum temperature of the circuit A
       type: DiematicOneDecimal
+      component: number
+      unit: °C
+      icon: mdi:thermometer-low
+      entity_category: config
+      device_class: temperature
+      min: 10
+      max: 50
+      step: 5
     - id: 299
       name: temperature_max_circuit_a
+      desc: Maximum temperature of the circuit A
       type: DiematicOneDecimal
+      component: number
+      unit: °C
+      icon: mdi:thermometer-high
+      entity_category: config
+      device_class: temperature
+      min: 20
+      max: 120
+      step: 5
+    - id: 305
+      name: max_r_heat
+      desc: Power Maximum in heating
+      type: Raw
+      component: sensor
+      unit: "%"
+      icon: mdi:percent
+      device_class: power_factor
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
+    - id: 457
+      name: boiler_model
+      type: Model
     - id: 465
       name: error
+      desc: Boiler state
       type: ErrorCode
+      component: sensor
+      device_class: enum
+      entity_category: diagnostic
+      icon: mdi:information-outline
+      options:
+        - 'OK'
+        - 'BOILER S.FAIL.'
+        - 'OUTL S.A FAIL.'
+        - 'OUTL S.B FAIL.'
+        - 'OUTL S.C FAIL.'
+        - 'OUTSI. S.FAIL.'
+        - 'SMOKE S. FAIL.'
+        - 'AUX. F. DEFEKT'
+        - 'DHW S. FAILURE'
+        - 'BACK S.FAILURE'
+        - 'ROOM S.A FAIL.'
+        - 'ROOM S.B FAIL.'
+        - 'ROOM S.C FAIL.'
+        - 'SOLAR S. FAIL'
+        - 'ST.TANK S.FAIL'
+        - 'SWIM.P.A S.FAIL'
+        - 'DHW 2 S. FAIL'
+        - 'CDI.A COM.FAIL'
+        - 'CDI.B COM.FAIL'
+        - 'CDI.C COM.FAIL'
+        - 'I-CURRENT FAIL'
+        - 'BURNER FAILURE'
+        - 'PARASIT FLAME'
+        - 'STB BOILER'
+        - 'STB BACK'
+        - 'VALVE FAIL'
+        - 'PCU BLOCKING'
+        - 'EXCHAN.S.FAIL'
+        - 'STB EXCHANGE'
+        - 'TA-S SHORT-CIR'
+        - 'TA-S DISCONNEC'
+        - 'TA-S FAILURE'
+        - 'MC COM.FAIL'
+        - 'AUX2.SENS.FAIL'
+        - 'UNIV.SENS.FAIL'
+        - 'SWIM.P.B S.FAIL'
+        - 'SWIM.P.C S.FAIL'
+        - 'PCU COM. FAIL'
+        - 'LOCKING'
+        - 'PSU FAIL'
+        - 'PSU PARAM FAIL'
+        - 'CCE TEST FAIL'
+        - 'FAN FAILURE'
+        - 'SMOKE.P.FAIL'
+        - 'SU COM.FAIL'
+        - 'PCU-M3 COM.FAIL'
+        - 'CS OPEN FAIL'
+        - 'EXCH-BACK<MIN'
+        - 'EXCH-BACK>MAX'
+        - 'BACK>BOIL FAIL'
+        - 'FAIL UNKNOWN'
+      platform: sensor
     - id: 474
       type: bits
       bits:
@@ -976,23 +1252,53 @@ registers:
           - io_phone_output
     - id: 503
       name: power
+      desc: Current boiler power
       type: Raw
+      component: sensor
+      unit: "%"
+      icon: mdi:percent
+      device_class: power_factor
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 600
       name: software_version
       type: Raw
       influx: no
     - id: 601
       name: temperature_external
+      desc: Read of the outdoor sensor
       type: DiematicOneDecimal
-      desc: External temperature
-      unit: CelsiusTemperature
+      unit: °C
       ha: true
+      component: sensor
+      icon: mdi:home-thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 602
       name: temperature_boiler
+      desc: Readment of the flow sensor of the boiler
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:fire
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 603
       name: temperature_tank
+      desc: Read of domestic hot water sensor
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:water-thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     # - id: 604
     #   name: temperature_smoke
     #   type: DiematicOneDecimal
@@ -1004,13 +1310,37 @@ registers:
       type: DiematicOneDecimal
     - id: 607
       name: temperature_retour_aux
+      desc: Read of the return sensor
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:pipe
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 608
       name: current
+      desc: Read of the ionization current
       type: DiematicOneDecimal
+      unit: µA
+      component: sensor
+      icon: mdi:flash
+      # device_class: current
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 609
       name: fan_speed
+      desc: Fan speed
       type: Raw
+      unit: rpm
+      component: sensor
+      icon: mdi:fan
+      # device_class: none exists for rpm
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     # - id: 610
     #   name: pressure
     #   type: DiematicOneDecimal
@@ -1022,13 +1352,27 @@ registers:
       type: DiematicOneDecimal
     - id: 614
       name: temperature_room_circuit_a
+      desc: Read of the room sensor circuit A
       type: DiematicOneDecimal
-      desc: Circuit A temperature
-      unit: CelsiusTemperature
+      unit: °C
       ha: true
+      component: sensor
+      icon: mdi:thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 615
       name: temperature_room_circuit_a_calcule
+      desc: By the controller calculated outlet setpoint Circ A
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 616
       name: temperature_room_circuit_b
       type: DiematicOneDecimal
@@ -1043,10 +1387,26 @@ registers:
       type: DiematicOneDecimal
     - id: 620
       name: temperature_chaud_calcule
+      desc: By the controller calculated water setpoint
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 621
       name: temperature_outlet_a
+      desc: Read of the outlet temperature Circ A
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 622
       name: temperature_aux_1
       type: DiematicOneDecimal
@@ -1058,28 +1418,53 @@ registers:
       type: DiematicOneDecimal
     - id: 625
       name: temperature_exchange
+      desc: Heat Exchanger temperature
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 650
       name: temp_dia_a
+      desc: Wished room temperature in comfort period of the circuit A
       type: DiematicOneDecimal
-      desc: Day A
-      unit: CelsiusTemperature
+      unit: °C
+      component: number
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
       ha: true
       step: 0.5
       min: 10.0
       max: 30.0
     - id: 651
       name: temp_noche_a
+      desc: Wished room temperature in reduced period of the circuit A
       type: DiematicOneDecimal
-      desc: Night A
-      unit: CelsiusTemperature
+      unit: °C
+      component: number
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
       ha: true
       step: 0.5
       min: 10.0
       max: 30.0
     - id: 652
       name: temp_antihielo_a
+      desc: Minimal authorized room temperature circuit A
       type: DiematicOneDecimal
+      unit: °C
+      component: number
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
+      step: 0.5
+      min: 3.0
+      max: 20.0
     - id: 653
       type: bits
       bits:
@@ -1091,12 +1476,19 @@ registers:
           - io_dgt_a_type
     - id: 655
       name: slope_heat_curve_circ_a
+      desc: Slope of the heat curve of the circuit A
       type: DiematicOneDecimal
+      component: number
+      icon: mdi:knob
+      entity_category: config
+      step: 0.1
+      min: 0.0
+      max: 4.0
     - id: 656
       name: temp_dia_b
       type: DiematicOneDecimal
       desc: Day B
-      unit: CelsiusTemperature
+      unit: °C
     - id: 657
       name: temp_noche_b
       type: DiematicOneDecimal
@@ -1120,25 +1512,48 @@ registers:
       type: DiematicOneDecimal
     - id: 672
       name: temp_dia_acs
+      desc: Wished domestic day hot water temperature
       type: DiematicOneDecimal
-      desc: Day ACS
-      unit: CelsiusTemperature
+      unit: °C
+      component: number
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
       ha: true
       step: 1.0
       min: 10.0
       max: 80.0
     - id: 673
       name: temp_noche_acs
+      desc: Wished domestic night hot water temperature
       type: DiematicOneDecimal
-      desc: Night ACS
-      unit: CelsiusTemperature
+      unit: °C
+      component: number
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
       ha: true
       step: 1.0
       min: 10.0
       max: 80.0
     - id: 674
       name: priority_acs
-      type: DiematicOneDecimal
+      desc: Choice of DHW Priority
+      type: Raw
+      component: select
+      entity_category: config
+      options:
+        - "Total"
+        - "Sliding"
+        - "No"
+        - "Unknown"
+      icon: mdi:water
+      value_template: >-
+        {% set values = ["Total", "Sliding", "No"] %}
+        {{ values[value_json.priority_acs | int] if value_json.priority_acs | int >= 0 and value_json.priority_acs | int < values | length else "Unknown" }}
+      command_template: >-
+        {% set values = ["Total", "Sliding", "No"] %}
+        {{ values.index(value) if value in values else None }}
     - id: 679
       name: hour
       type: Raw
@@ -1162,7 +1577,15 @@ registers:
       type: DiematicOneDecimal
     - id: 734
       name: temp_calc_second
+      desc: Secondary calculated setpoint
       type: DiematicOneDecimal
+      unit: °C
+      component: sensor
+      icon: mdi:thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 0
+      state_class: measurement
     - id: 735
       type: bits
       bits:
@@ -1184,5 +1607,14 @@ registers:
           - io_cascade_failure
     - id: 738
       name: decal_a
+      desc: Adjustment of the parallel offsets of the temperature curve for circuit A
       type: DiematicOneDecimal
+      unit: K
+      component: number
+      icon: mdi:knob
+      entity_category: config
+      device_class: temperature
+      step: 1.0
+      min: 0.0
+      max: 50.0
 

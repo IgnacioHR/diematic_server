@@ -8,7 +8,6 @@ See and respect licensing terms
 
 """
 import logging
-from typing import NoReturn
 import json
 import yaml
 import os
@@ -26,6 +25,7 @@ from influxdb.exceptions import InfluxDBClientError
 from daemon import DaemonContext
 from daemon import pidfile
 from aiohttp import web
+from typing import Any, Dict, List, NoReturn, Tuple
 
 import paho.mqtt.client as mqtt
 import asyncio
@@ -243,7 +243,13 @@ class DiematicApp:
 
         runner = web.AppRunner(self.webServer)
         loop.run_until_complete(runner.setup())
-        site = web.TCPSite(runner, self.args.hostname, self.args.port)
+
+        # argument preference is:
+        # cli takes preference over config file.
+        http = self.cfg.get('http', None)
+        hostname = self.args.hostname if self.hostname_explicit else self.args.hostname if http is None else http.get('hostname', self.args.hostname)
+        port = self.args.port if self.port_explicit else self.args.port if http is None else http.get('port', self.args.port)
+        site = web.TCPSite(runner, hostname, port)
         loop.run_until_complete(site.start())
         if self.args.server == 'web':
             loop.run_forever()
@@ -258,6 +264,7 @@ class DiematicApp:
 
     def do_main_program(self):
         self._create_boiler()
+        self.shall_browse_registers = True
         loop = True
         while loop:
             try:
@@ -299,25 +306,29 @@ class DiematicApp:
 
         #parsing registers to push data in Object attributes
         self.MyBoiler.browse_registers()
+        data = self.MyBoiler.fetch_data()
         log.info("Values read")
         log.debug("Dumping values\n" + self.MyBoiler.dump())
-
 
         #pushing data to influxdb
         if self.args.backend and (self.args.backend == 'influxdb' or (self.args.backend == 'configured' and 'influxdb' in self.cfg)):
             timestamp = int(time.time() * 1000) #milliseconds
-            influx_json_body = [
-            {
+            influx_json_body = [{
                 "measurement": "diematic",
                 "tags": {
                     "host": "raspberrypi",
                 },
                 "timestamp": timestamp,
-                "fields": self.MyBoiler.fetch_data() 
-            }
-            ]
+                "fields": data
+            }]
 
-            influx_client = InfluxDBClient(self.cfg['influxdb']['host'], self.cfg['influxdb']['port'], self.cfg['influxdb']['user'], self.cfg['influxdb']['password'], self.cfg['influxdb']['database'])
+            influx_host = self.args.influxdb_host if 'influxdb_host' in self.args and not self.args.influxdb_host is None else self.cfg['influxdb']['host']
+            influx_port = self.args.influxdb_port if 'influxdb_port' in self.args and not self.args.influxdb_port is None else self.cfg['influxdb']['port']
+            influx_user = self.args.influxdb_user if 'influxdb_user' in self.args and not self.args.influxdb_user is None else self.cfg['influxdb']['user']
+            influx_password = self.args.influxdb_password if 'influxdb_password' in self.args and not self.args.influxdb_password is None else self.cfg['influxdb']['password']
+            influx_database = self.args.influxdb_database if 'influxdb_database' in self.args and not self.args.influxdb_database is None else self.cfg['influxdb']['database']
+
+            influx_client = InfluxDBClient(influx_host, influx_port, influx_user, influx_password, influx_database)
 
             log.debug("Write points: {0}".format(influx_json_body))
             try:
@@ -326,17 +337,194 @@ class DiematicApp:
             except InfluxDBClientError as e:
                 log.error(e)
         
-        if self.args.backend and (self.args.backend == 'mqtt' or (self.args.backend == 'configured' and 'mqtt' in self.cfg)):
-            if self.mqtt_connected:
-                try:
-                    log.debug('Sending values to mqtt')
-                    mqtt_json_body = json.dumps(self.MyBoiler.fetch_data(), indent=2)
-                    self.mqttc.publish(self.cfg['mqtt']['topic'],mqtt_json_body).wait_for_publish()
-                    log.info('Values published to mqtt')
-                except RuntimeError as e:
-                    log.error('Can''t publish due to error:',e)
-            else:
-                log.error('Still not connected to mqtt broker')
+        if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured'):
+            try:
+                if self.ha_discovery and self.shall_run_discovery:
+                    self.home_assistant_discovery(data)
+                    self.shall_run_discovery = False
+                    log.info('Sending discovery info')
+                    time.sleep(0.3)
+                mqtt_json_body = json.dumps(data, indent=2)
+                self.mqttc.publish(self.mqtt_topic, mqtt_json_body).wait_for_publish()
+                log.info('Values published to mqtt')
+            except RuntimeError as e:
+                log.error('Can\'t publish due to error:', e)
+
+    def _mqtt_device_keys(self) -> Tuple[str, str]:
+        """
+        Returns a tuple that contains device prefix and uuid
+        """
+        prefix = self.args.mqtt_ha_discovery_prefix 
+        if not self.mqtt_ha_discovery_prefix_explicit and 'mqtt' in self.cfg and 'discovery' in self.cfg['mqtt'] and 'prefix' in self.cfg['mqtt']['discovery']:
+            confkey = self.cfg['mqtt']['discovery']
+            prefix = confkey.get('prefix','homeassistant')
+        uuid = self.cfg['boiler']['uuid'].replace('-','')
+        return [prefix, uuid]
+
+    def _mqtt_topic_header(self, component: str, object_id: str) -> str:
+        prefix, uuid = self._mqtt_device_keys()
+        return f'{prefix}/{component}/{uuid}/{object_id}'
+
+    def home_assistant_discovery(self, data: Dict[str, Any]) -> None:
+        # --------------------------------------------------------------------------- #
+        # send home assistant discovery information
+        # --------------------------------------------------------------------------- #
+        log.debug('preparing discovery for sensors')
+        prefix, uuid = self._mqtt_device_keys()
+        device_name = self.cfg['boiler'].get('name', 'Boiler')
+        model = data.get('boiler_model', 'Unknown')
+        sw_version = str(data.get('software_version', 0))
+        retain = False
+        if self.mqtt_retain_explicit:
+            retain = self.args.mqtt_retain
+        elif 'mqtt' in self.cfg and 'retain' in self.cfg['mqtt']:
+            retain = self.cfg['mqtt'].get('retain')
+        subtopic = self.mqtt_topic.split('/').pop()
+        for register in self.MyBoiler.index:
+            if not 'component' in register:
+                continue
+            component = register['component']
+            if not 'name' in register: 
+                continue
+            object_id = register['name']
+            if not 'entity_category' in register:
+                log.error(f'Preparing discovery of {object_id} entity_category is missing')
+                continue
+            entity_category = register['entity_category']
+            if not 'icon' in register:
+                log.error(f'Preparing discovery of {object_id} icon is missing')
+                continue
+            icon = register['icon']
+            unit = register.get('unit', None)
+            state_class = register.get('state_class', None)
+            device_class = register.get('device_class', None)
+            min = register.get('min', None)
+            max = register.get('max', None)
+            step = register.get('step', None)
+            value_template = register.get('value_template', None)
+            command_template = register.get('command_template', None)
+            options = register.get('options', None)
+            suggested_display_precision = register.get('suggested_display_precision', None)
+            self.ha_discover(
+                prefix, uuid, model, sw_version, retain, subtopic, device_name,
+                component=component, object_id=object_id, device_class=device_class, 
+                entity_category=entity_category, icon=icon, state_class=state_class, 
+                unit=unit, min=min, max=max, step=step, value_template=value_template, 
+                command_template=command_template, options=options,
+                suggested_display_precision=suggested_display_precision
+            )
+
+    def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str, retain: bool, subtopic: str, device_name: str,
+        component: str, object_id: str, device_class: str, entity_category: str, icon: str, state_class: str, unit: str,
+        min: float = None, max: float = None, step: float = None, value_template: str = None, command_template: str = None,
+        options: List[str] = None, suggested_display_precision: int = None
+    ):
+        entity_name = self.MyBoiler.get_register_field(object_id, 'desc')
+        topic_head = f'{prefix}/{component}/{uuid}/{object_id}'
+        topic = f'{topic_head}/config'
+        config = {
+            "config_topic": topic,
+            "availability": [
+                {
+                    "topic": "zigbee2mqtt/bridge/state",
+                    "value_template": "{{ value_json.state }}"
+                },
+                {
+                    "topic": self.mqtt_topic_available
+                # }, # single device availability, does this really exists?
+                # {
+                #     "topic": f"{topic_head}/availability"
+                }
+            ],
+            "device": {
+                "identifiers": [f"{uuid}"],
+                "manufacturer": "De Dietrich",
+                "model": model,
+                "name": device_name,
+                "sw_version": sw_version
+            },
+            # "json_attributes_topic": f"{topic_head}/attributes",
+            "name": f"{entity_name}",
+            "retain": retain,
+            "state_topic": self.mqtt_topic,
+            "value_template": f"{{{{ value_json.{object_id} }}}}",
+            "unique_id": f"{uuid}_{object_id}",
+            "entity_category": f"{entity_category}",
+            "icon": f"{icon}",
+            "object_id": f"{subtopic}_{object_id}",
+            "qos": 1,
+        }
+        if device_class is not None:
+            config['device_class'] = device_class
+        if state_class is not None:
+            config['state_class'] = state_class
+        if unit is not None:
+            config['unit_of_measurement'] = unit
+        if min is not None:
+            config["min"] = min
+        if max is not None:
+            config["max"] = max
+        if step is not None:
+            config["step"] = step
+        if value_template is not None:
+            config['value_template'] = value_template
+        if command_template is not None:
+            config['command_template'] = command_template
+        if options is not None:
+            config['options'] = options
+        if suggested_display_precision is not None:
+            config['suggested_display_precision'] = suggested_display_precision
+
+        # if component == 'sensor':
+        #     config["state_class"] = f"{state_class}"
+        if component == 'number' or component == 'select':
+            self.command_topic(topic_head, object_id, config)
+        if component == 'sensor':
+            config['platform'] = 'sensor'
+        
+        config_str = json.dumps(config, indent=2)
+        self.mqttc.publish(topic, config_str).wait_for_publish()
+        log.info(f'Entity {object_id} discovered via mqtt')
+
+    def command_topic(self, topic_head: str, object_id: str, config: Dict[str, Any]):
+        command_topic = f"{topic_head}/set/{object_id}"
+        config["command_topic"] = command_topic
+        # subscribe to this topic
+        self.mqttc.subscribe(command_topic, 2)
+
+    def home_assistant_values(self, data: Dict[str, Any]) -> None:
+        for register in self.MyBoiler.index:
+            if not 'component' in register:
+                continue
+            component = register['component']
+            if not 'name' in register: 
+                continue
+            object_id = register['name']
+            self.ha_value(data, component=component, object_id=object_id)
+
+    def ha_value(self, data: Dict[str, Any], component: str, object_id: str):
+        topic_header = self._mqtt_topic_header(component, object_id)
+        
+        topic_state = f'{topic_header}/state'
+        self.ha_state(topic_state, data[object_id])
+
+    def ha_state(self, topic_state: str, state: Any):
+        self.mqttc.publish(topic_state, state).wait_for_publish()
+
+    def home_assistant_attributes(self) -> None:
+        for register in self.MyBoiler.index:
+            if not 'component' in register:
+                continue
+            component = register['component']
+            if not 'name' in register: 
+                continue
+            object_id = register['name']
+            self.ha_attributes(component=component, object_id=object_id)
+
+    def ha_attributes(self, component: str, object_id: str):
+        topic_header = self._mqtt_topic_header(component, object_id)
+        topic_attributes = f'{topic_header}/attributes'
+        self.mqttc.publish(topic_attributes, '{}').wait_for_publish()
 
     def read_config_file(self):
         # --------------------------------------------------------------------------- #
@@ -469,6 +657,8 @@ class DiematicApp:
                                     emit_message("Register {} value {}".format(address, self.MyBoiler._decode_circtype(registers[0])), sys.stdout)
                                 elif format == 'DiematicProgram':
                                     emit_message("Register {} value {}".format(address, self.MyBoiler._decode_program(registers[0])), sys.stdout)
+                                elif format == 'Model':
+                                    emit_message("Register {} value {}".format(address, self.MyBoiler._decode_model(registers[0])), sys.stdout)
                                 elif format == 'bit0':
                                     emit_message("Register {} value {}".format(address, (registers[0] & 0x0001) >> 0), sys.stdout)
                                 elif format == 'bit1':
@@ -602,37 +792,94 @@ class DiematicApp:
         if self.MODBUS_DEVICE is None:
             raise ValueError('Modbus device not set')
         self.shall_create_boiler = True
+        self.mqtt_started = False
 
-        if 'mqtt' in self.cfg:
-            try:
-                mqttk = self.cfg['mqtt']
-                self.mqtt_connected = False
-                client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-                self.mqttc = client
-                client.on_connect = on_mqtt_connect
-                client.on_disconnect = on_mqtt_disconnect
-                tls = 'tls' in mqttk
-                if tls:
-                    client.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2)
-                auth = 'user' in mqttk
-                if auth:
-                    client.username_pw_set(mqttk['user'], mqttk['password'])
-                connection = self.mqttc.connect(
-                    mqttk['broker'], 
-                    mqttk.get('port', 8883 if tls else 1883), 
-                    60
-                )
-                if connection == mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
-                    client.loop_start()
-                else:
-                    log.error('Can''t connect to mqtt broker, error code is {connection}')
-            except Exception as e:
-                log.error('mqtt found in configuration file but connection raised the following error:',e)
+        mqttk = self.cfg.get('mqtt', None)
+        self.ha_discovery = self.args.mqtt_ha_discovery if self.mqtt_ha_discovery_explicit else mqttk.get('discovery', False) if mqttk is not None else False
+        self.shall_run_discovery = True if self.ha_discovery is not None else False
+        self.mqtt_topic = self.args.mqtt_topic if self.mqtt_topic_explicit else mqttk.get('topic', 'diematic2mqtt/boiler') if mqttk is not None else 'diematic2mqtt/boiler'
+        self.mqtt_topic_available = f'{self.mqtt_topic}/availability'
+
+        self.mqtt_client()
+        self.mqtt_connect()
 
     def _restart(self):
         """ Stop, then start. """
         self._stop()
         self._start()
+
+    def mqtt_client(self):
+        if not self.mqtt_started and ('mqtt_broker' in self.args or 'mqtt' in self.cfg):
+            self.mqtt_started = True
+            try:
+                if self.mqtt_connected:
+                    self.mqttc.disconnect()    
+                self.mqtt_connected = False
+                client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, protocol=mqtt.MQTTv5)
+                self.mqttc = client
+                client.on_connect = self.on_mqtt_connect
+                client.on_disconnect = self.on_mqtt_disconnect
+                client.on_message = self.on_mqtt_message
+                client.will_set(self.mqtt_topic_available, 'offline', 1)
+            except Exception as e:
+                log.error('mqtt found in configuration file but connection raised the following error:',e)
+
+    def mqtt_connect(self):
+        if not self.mqtt_connecting:
+            self.mqtt_connecting = True
+            try:
+                mqttk = self.cfg.get('mqtt', None)
+                tls = self.mqtt_tls_explicit or (mqttk is not None and 'tls' in mqttk and mqttk.get('tls') is True)
+                if tls:
+                    self.mqttc.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2)
+                auth = 'mqtt_user' in self.args or (mqttk is not None and 'user' in mqttk)
+                if auth:
+                    user = self.args.mqtt_user if 'mqtt_user' in self.args else (mqttk.get('user', None) if mqttk is not None else None)
+                    password = self.args.mqtt_password if 'mqtt_password' in self.args else (mqttk.get('password', None) if mqttk is not None else None)
+                    if user is not None and password is not None:
+                        self.mqttc.username_pw_set(user, password)
+                broker = self.args.mqtt_broker if 'mqtt_broker' in self.args else (mqttk.get('broker', None) if mqtt is not None else None)
+                port = self.args.mqtt_port if self.mqtt_port_explicit else mqttk.get('port', 8883 if tls else 1883) if mqttk is not None else 8883 if tls else 1883
+                connection = self.mqttc.connect(broker, port, 60, clean_start=True) if broker is not None and port is not None else 'Connection parameters are missing'
+                if connection == mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
+                    self.mqttc.loop_start()
+                    self.mqttc.publish(self.mqtt_topic_available, 'online').wait_for_publish()
+                else:
+                    log.error(f'Can\'t connect to mqtt broker, error code is {connection}')
+            except Exception as e:
+                log.error('mqtt found in configuration file but connection raised the following error:',e)
+
+    def on_mqtt_connect(self, client, userdata, flags, rc, properties):
+        self.mqtt_connected = True
+        self.mqtt_connecting = False
+        log.info('MQTT Connected successfully')
+
+    def on_mqtt_disconnect(self, client, userdata, flags, rc, properties):
+        self.mqtt_connected = False
+        log.info('MQTT Disconncted!')
+
+    def on_mqtt_message(self, client, userdata, msg: mqtt.MQTTMessage):
+        log.info(f'Message: userdata:{userdata} topic:{msg.topic} payload:{str(msg.payload)} retained:{msg.retain}')
+        topic_parts = msg.topic.split('/')
+        if len(topic_parts) > 5 and topic_parts[4] == 'set':
+            varname = topic_parts[5]
+            value = self.parse_payload(msg.payload)
+            if value is not None:
+                def callback():
+                    topic_state = topic_parts[0]+'/'+topic_parts[1]+'/'+topic_parts[2]+'/'+topic_parts[3]+'/state'
+                    self.ha_state(topic_state, value)
+                self.MyBoiler.set_write_pending(varname, value, callback)
+                self.check_pending_writes()
+
+    def parse_payload(self, payload):
+        # json.loads(payload.decode('utf8'))
+        if type(payload) is bytes:
+            decoded = payload.decode('utf8')
+            if len(decoded) > 0:
+                return json.loads(decoded)
+            return None
+        log.error(f'unkown value type for payload {payload}')
+        return None
 
     def _test(self):
         """ For testing purposes only, not documented."""
@@ -739,7 +986,9 @@ def parse_args(app, argv=None):
     # retrieve command line arguments
     # --------------------------------------------------------------------------- #
     parser = argparse.ArgumentParser(
-        description="Send data from Diematic boiler to web, influx database or mqtt broker"
+        description="Send data from Diematic boiler to web, influx database or mqtt broker",
+        epilog="Developed by Ignacio Hernández-Ros and distributed under the MIT license",
+        usage='%(prog)s [options]'
     )
     parser.add_argument(dest='action', choices=['status', 'start', 'stop', 'restart', 'reload', 'runonce', 'readregister', 'writeregister'], default="runonce", help="action to take", type=ActionType)
     parser.add_argument("-b", "--backend", choices=['none', 'configured', 'influxdb', 'mqtt'], default='configured', help="select data backend (default is any configured in the configuration file)")
@@ -751,12 +1000,38 @@ def parse_args(app, argv=None):
     parser.add_argument("-p", "--port", default=8080, help="web server port, defaults to 8080", type=int)
     parser.add_argument("-s", "--server", choices=['loop','web','both'], default='both', help="servers to start")
     parser.add_argument("-a", "--address", default=0, help="register address to read whe action is readregister", type=int)
-    parser.add_argument("-t", "--format", default='Raw', help="value format to apply for register read, default is Raw", choices=['Raw', 'DiematicOneDecimal', 'DiematicModeFlag', 'ErrorCode', 'DiematicCircType', 'DiematicProgram', 'bit0', 'bit1', 'bit2', 'bit3', 'bit4', 'bit5', 'bit6', 'bit7', 'bit8', 'bit9', 'bitA', 'bitB', 'bitC', 'bitD', 'bitE', 'bitF'])
+    parser.add_argument("-t", "--format", default='Raw', help="value format to apply for register read, default is Raw", choices=['Raw', 'DiematicOneDecimal', 'DiematicModeFlag', 'ErrorCode', 'DiematicCircType', 'DiematicProgram', 'Model', 'bit0', 'bit1', 'bit2', 'bit3', 'bit4', 'bit5', 'bit6', 'bit7', 'bit8', 'bit9', 'bitA', 'bitB', 'bitC', 'bitD', 'bitE', 'bitF'])
+    parser.add_argument("--influxdb-host", help="InfluxDB host name", type=str)
+    parser.add_argument("--influxdb-port", help="InfluxDB port", type=str)
+    parser.add_argument("--influxdb-user", help="InfluxDB user name", type=str)
+    parser.add_argument("--influxdb-password", help="InfluxDB user password", type=str)
+    parser.add_argument("--influxdb-database", help="InfluxDB database", type=str)
+    parser.add_argument("--mqtt-broker", help="MQTT Broker server, hostname or ip address", type=str)
+    parser.add_argument("--mqtt-port", help="MQTT Broker server, port", type=str)
+    parser.add_argument("--mqtt-tls", help="Use tls to connect to mqtt broker", action='store_true')
+    parser.add_argument("--mqtt-user", help="MQTT user name", type=str)
+    parser.add_argument("--mqtt-password", help="MQTT user password", type=str)
+    parser.add_argument("--mqtt-topic", help="Topic where the values will be published in mqtt broker", default="diematic2mqtt/boiler", type=str)
+    parser.add_argument("--mqtt-ha-discovery", help="if set, the service will publish Home Assistant Discovery topics", action='store_true')
+    parser.add_argument("--mqtt-ha-discovery-prefix", help="Home assistant topic prefix", default="homeassistant", type=str)
+    parser.add_argument("--mqtt-retain", help="set this parameter to retain messages in the broker, default is false", action='store_true')
 
     if len(argv) < 1:
-        _usage_exit(parser, argv)
+        _usage_exit(parser)
 
     app.args = parser.parse_args(argv)
+
+    app.hostname_explicit = '--hostname' in argv or "-w" in argv
+    app.port_explicit = '--port' in argv or "-p" in argv
+    app.mqtt_tls_explicit = '--mqtt-tls' in argv
+    app.mqtt_port_explicit = '--mqtt-port' in argv
+    app.mqtt_ha_discovery_explicit = '--mqtt-ha-discovery' in argv
+    app.mqtt_ha_discovery_prefix_explicit = '--mqtt-ha-discovery-prefix' in argv
+    app.mqtt_retain_explicit = '--mqtt-retain' in argv
+    app.mqtt_topic_explicit = '--mqtt-topic' in argv
+
+    app.mqtt_connected = False
+    app.mqtt_connecting = False
 
     app.action = app.args.action
     if app.args.action == 'runonce':
@@ -768,9 +1043,8 @@ def parse_args(app, argv=None):
     if app.args.action == 'readregister' or app.args.action == 'writeregister':
         app.args.backend = 'none'
 
-    # self.action = str(argv[1])
     if app.action not in app.action_funcs:
-        _usage_exit(parser, argv)
+        _usage_exit(parser)
 
 def emit_message(message, stream=None):
     """ Emit a message to the specified stream (default `sys.stderr`). """
@@ -829,14 +1103,6 @@ def is_process_already_running(pidfile):
             pass
 
     return result
-
-def on_mqtt_connect(client, userdata, flags, rc, properties):
-    app.mqtt_connected = True
-    log.info('MQTT Connected successfully')
-
-def on_mqtt_disconnect(client, userdata, flags, rc, properties):
-    app.mqtt_connected = False
-    log.info('MQTT Disconncted!')
 
 if __name__ == '__main__':
     app = DiematicApp()

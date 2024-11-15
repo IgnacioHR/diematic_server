@@ -19,6 +19,46 @@ Optionally, boiler parameters can be changed from the mqtt topics (TODO)
 
 Check tutorials in the "references" section below on how to do the hardware setup.
 
+## Changes from version 2.X
+
+ * Added support to integrate with mqtt broker
+ * Added command line parameters with priority over provided values in the configuration file
+
+## Http server
+
+Satrting from version 3.0 the web server can be configured from the `diematic.yaml` configuration file by adding an `http` key as follows:
+
+```
+http:
+    address: 0.0.0.0
+    port: 8080
+```
+
+Once the service is running head to:
+
+http://{HOSTNAME}:{PORT}/diematic/parameters
+
+you can have access to all parameters indicated in the configuration file. Read the webserver.py documentation to know more about it.
+
+## MQTT
+
+Starting from version 3.0 the service can be configured to send data to an MQTT broker. The broker configuration goes in the diematic.yaml configuration file as follows:
+
+```
+mqtt:
+  broker: your broker server
+  port: 1883
+  user: your mqtt user, optional
+  password: your mqtt user credentials
+  retain: false
+  tls: false
+  topic: diematic2mqtt/boiler
+  discovery:
+    prefix: homeassistant
+```
+
+If there is no `mqtt` key, mqtt will not be considered at all. Under the `mqtt` key only `broker` key is required. The value is the broker ip address or host name that can be resolved using dns. The `port` default value is 1883 or 8883 if `tls` key is set to true. If provided, the `user` and `password` keys are used to open connection to the broker. `retain` can be used to inform the broker to retain the values. `topic` key can be used to configure the topic under wich all information will be set. if `discovery` key is set, the server will publish MQTT Discovery information to the broker. The `prefix` key indicates the topic under wich home assistant is subscribed to receive MQTT Discovery information.
+
 ## Installation
 ```
 git clone https://github.com/IgnacioHR/diematicd.git
