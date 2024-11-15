@@ -322,20 +322,26 @@ class DiematicApp:
                 "fields": data
             }]
 
-            influx_host = self.args.influxdb_host if 'influxdb_host' in self.args and not self.args.influxdb_host is None else self.cfg['influxdb']['host']
-            influx_port = self.args.influxdb_port if 'influxdb_port' in self.args and not self.args.influxdb_port is None else self.cfg['influxdb']['port']
-            influx_user = self.args.influxdb_user if 'influxdb_user' in self.args and not self.args.influxdb_user is None else self.cfg['influxdb']['user']
-            influx_password = self.args.influxdb_password if 'influxdb_password' in self.args and not self.args.influxdb_password is None else self.cfg['influxdb']['password']
-            influx_database = self.args.influxdb_database if 'influxdb_database' in self.args and not self.args.influxdb_database is None else self.cfg['influxdb']['database']
+            influxcfg = self.cfg.get('influxdb', None)
+            influx_host = self.args.influxdb_host if self.influxdb_host_explicit else influxcfg.get('host', None) if influxcfg is not None else None
+            influx_port = self.args.influxdb_port if self.influxdb_port_explicit else influxcfg.get('port', None) if influxcfg is not None else None
+            influx_user = self.args.influxdb_user if self.influxdb_user_explicit else influxcfg.get('user', None) if influxcfg is not None else None
+            influx_password = self.args.influxdb_password if self.influxdb_password_explicit else influxcfg.get('password', None) if influxcfg is not None else None
+            influx_database = self.args.influxdb_database if self.influxdb_database_explicit else influxcfg.get('database', None) if influxcfg is not None else None
 
-            influx_client = InfluxDBClient(influx_host, influx_port, influx_user, influx_password, influx_database)
+            if influx_host is not None and influx_port is not None and influx_user is not None and influx_password is not None and influx_database is not None:
+                influx_client = InfluxDBClient(influx_host, influx_port, influx_user, influx_password, influx_database)
 
-            log.debug("Write points: {0}".format(influx_json_body))
-            try:
-                influx_client.write_points(influx_json_body, time_precision='ms')
-                log.info("Values written to influxdb")
-            except InfluxDBClientError as e:
-                log.error(e)
+                log.debug("Write points: {0}".format(influx_json_body))
+                try:
+                    influx_client.write_points(influx_json_body, time_precision='ms')
+                    log.info("Values written to influxdb")
+                except InfluxDBClientError as e:
+                    log.error(e)
+                except Exception as e:
+                    log.error(e)
+            else:
+                log.error(f'influxdb backend is missconfigured, please review configuration file and/or arguments')
         
         if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured'):
             try:
@@ -834,11 +840,11 @@ class DiematicApp:
                     self.mqttc.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2)
                 auth = 'mqtt_user' in self.args or (mqttk is not None and 'user' in mqttk)
                 if auth:
-                    user = self.args.mqtt_user if 'mqtt_user' in self.args else (mqttk.get('user', None) if mqttk is not None else None)
-                    password = self.args.mqtt_password if 'mqtt_password' in self.args else (mqttk.get('password', None) if mqttk is not None else None)
+                    user = self.args.mqtt_user if self.mqtt_user_explicit else mqttk.get('user', None) if mqttk is not None else None
+                    password = self.args.mqtt_password if self.mqtt_password_explicit else mqttk.get('password', None) if mqttk is not None else None
                     if user is not None and password is not None:
                         self.mqttc.username_pw_set(user, password)
-                broker = self.args.mqtt_broker if 'mqtt_broker' in self.args else (mqttk.get('broker', None) if mqtt is not None else None)
+                broker = self.args.mqtt_broker if self.mqtt_broker_explicit else (mqttk.get('broker', None) if mqtt is not None else None)
                 port = self.args.mqtt_port if self.mqtt_port_explicit else mqttk.get('port', 8883 if tls else 1883) if mqttk is not None else 8883 if tls else 1883
                 connection = self.mqttc.connect(broker, port, 60, clean_start=True) if broker is not None and port is not None else 'Connection parameters are missing'
                 if connection == mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
@@ -1023,21 +1029,31 @@ def parse_args(app, argv=None):
 
     app.hostname_explicit = '--hostname' in argv or "-w" in argv
     app.port_explicit = '--port' in argv or "-p" in argv
+
+    app.mqtt_broker_explicit = '--mqtt-broker' in argv
     app.mqtt_tls_explicit = '--mqtt-tls' in argv
     app.mqtt_port_explicit = '--mqtt-port' in argv
     app.mqtt_ha_discovery_explicit = '--mqtt-ha-discovery' in argv
     app.mqtt_ha_discovery_prefix_explicit = '--mqtt-ha-discovery-prefix' in argv
     app.mqtt_retain_explicit = '--mqtt-retain' in argv
     app.mqtt_topic_explicit = '--mqtt-topic' in argv
+    app.mqtt_user_explicit = '--mqtt-user' in argv
+    app.mqtt_password_explicit = '--mqtt-password' in argv
+
+    app.influxdb_host_explicit = '--influxdb-host' in argv
+    app.influxdb_port_explicit = '--influxdb-port' in argv
+    app.influxdb_user_explicit = '--influxdb-user' in argv
+    app.influxdb_password_explicit = '--influxdb-password' in argv
+    app.influxdb_database_explicit = '--influxdb-database' in argv
 
     app.mqtt_connected = False
     app.mqtt_connecting = False
 
     app.action = app.args.action
     if app.args.action == 'runonce':
-        if not ('-b' in argv or 'backend' in argv):
+        if not ('-b' in argv or '--backend' in argv):
             app.args.backend = 'none'
-        if not ('-l' in argv or 'loggin' in argv):
+        if not ('-l' in argv or '--loggin' in argv):
             app.args.logging = 'info'
 
     if app.args.action == 'readregister' or app.args.action == 'writeregister':
