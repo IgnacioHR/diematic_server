@@ -25,7 +25,7 @@ setuptools.setup(
 					'python-daemon==2.3.0',
 					'PyYAML==6.0.2',
 					'aiohttp==3.11.2',
-          'paho-mqtt=2.1.0',
+          'paho-mqtt==2.1.0',
       ],
   classifiers=[
     'Development Status :: 5 - Production/Stable',
