@@ -16,15 +16,15 @@ setuptools.setup(
   packages = ['diematic_server'],
   license='MIT',
   url = 'https://github.com/IgnacioHR/diematic_server',
-  download_url = 'https://github.com/IgnacioHR/diematic_server/archive/refs/tags/v2.2.tar.gz',
+  download_url = 'https://github.com/IgnacioHR/diematic_server/archive/refs/tags/v3.0.tar.gz',
   keywords = ['python', 'home-automation', 'iot', 'influxdb', 'restful', 'modbus', 'de-dietrich', 'diematic', 'mqtt'],
   install_requires=[
 					'daemon==1.2',
 					'influxdb==5.2.3',
 					'pymodbus==2.2.0',
 					'python-daemon==2.3.0',
-					'PyYAML==5.4',
-					'aiohttp==3.8.1',
+					'PyYAML==6.0.2',
+					'aiohttp==3.11.2',
           'paho-mqtt=2.1.0',
       ],
   classifiers=[
@@ -33,7 +33,7 @@ setuptools.setup(
     'Intended Audience :: Developers',
     'License :: OSI Approved :: MIT License',
 		'Operating System :: Unix',
-    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.11',
 		'Topic :: Home Automation',
 	],
 )

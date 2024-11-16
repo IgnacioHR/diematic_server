@@ -49,16 +49,16 @@ http:
     hostname: 0.0.0.0
     port: 8080
 
-# mqtt:
-#     broker: your broker server
-#     port: 1883
-#     user: your mqtt user, optional
-#     password: your mqtt user credentials
-#     retain: false
-#     tls: false
-#     topic: diematic2mqtt/boiler
-#     discovery:
-#       prefix: homeassistant
+mqtt:
+    broker: your broker server
+    port: 1883
+    user: your mqtt user, optional
+    password: your mqtt user credentials
+    retain: false
+    tls: false
+    topic: diematic2mqtt/boiler
+    discovery:
+      prefix: homeassistant
 
 registers:
     - id: 8
