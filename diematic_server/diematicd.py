@@ -25,7 +25,7 @@ from influxdb.exceptions import InfluxDBClientError
 from daemon import DaemonContext
 from daemon import pidfile
 from aiohttp import web
-from typing import Any, Dict, List, NoReturn, Tuple
+from typing import Any
 
 import paho.mqtt.client as mqtt
 import asyncio
@@ -184,9 +184,12 @@ class DiematicApp:
                                 raise DiematicModbusError(rr.message)
                             receivedvalue = rr.registers[0]
                             if not receivedvalue == newvalue:
-                                self.MyBoiler.write_error(paramName, "write operation success, but read value differs write value {wvalue} read value {rvalue}".format(wvalue=newvalue, rvalue=receivedvalue))
+                                errormessage = f"write operation success, but read value differs write value {newvalue} read value {receivedvalue} address {address}"
+                                self.MyBoiler.write_error(paramName, errormessage)
+                                log.error(errormessage)
                             else:
                                 self.MyBoiler.write_ok(paramName)
+                                log.info(f'Wite value {newvalue} at address {address} success')
                             return
                     except DiematicModbusError as error:
                         try_count += 1
@@ -223,7 +226,7 @@ class DiematicApp:
         if self.args.server == 'loop':
             x.join()
 
-    def main_program_loop(self) -> NoReturn:
+    def main_program_loop(self) -> None:
         while True:
             try:
                 self.do_main_program()
@@ -356,7 +359,7 @@ class DiematicApp:
             except RuntimeError as e:
                 log.error('Can\'t publish due to error:', e)
 
-    def _mqtt_device_keys(self) -> Tuple[str, str]:
+    def _mqtt_device_keys(self) -> tuple[str, str]:
         """
         Returns a tuple that contains device prefix and uuid
         """
@@ -371,7 +374,7 @@ class DiematicApp:
         prefix, uuid = self._mqtt_device_keys()
         return f'{prefix}/{component}/{uuid}/{object_id}'
 
-    def home_assistant_discovery(self, data: Dict[str, Any]) -> None:
+    def home_assistant_discovery(self, data: dict[str, Any]) -> None:
         # --------------------------------------------------------------------------- #
         # send home assistant discovery information
         # --------------------------------------------------------------------------- #
@@ -402,6 +405,8 @@ class DiematicApp:
                 continue
             icon = register['icon']
             unit = register.get('unit', None)
+            if unit == 'CelsiusTemperature':
+                unit = '°C'
             state_class = register.get('state_class', None)
             device_class = register.get('device_class', None)
             min = register.get('min', None)
@@ -423,7 +428,7 @@ class DiematicApp:
     def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str, retain: bool, subtopic: str, device_name: str,
         component: str, object_id: str, device_class: str, entity_category: str, icon: str, state_class: str, unit: str,
         min: float = None, max: float = None, step: float = None, value_template: str = None, command_template: str = None,
-        options: List[str] = None, suggested_display_precision: int = None
+        options: list[str] = None, suggested_display_precision: int = None
     ):
         entity_name = self.MyBoiler.get_register_field(object_id, 'desc')
         topic_head = f'{prefix}/{component}/{uuid}/{object_id}'
@@ -492,30 +497,11 @@ class DiematicApp:
         self.mqttc.publish(topic, config_str).wait_for_publish()
         log.info(f'Entity {object_id} discovered via mqtt')
 
-    def command_topic(self, topic_head: str, object_id: str, config: Dict[str, Any]):
+    def command_topic(self, topic_head: str, object_id: str, config: dict[str, Any]):
         command_topic = f"{topic_head}/set/{object_id}"
         config["command_topic"] = command_topic
         # subscribe to this topic
         self.mqttc.subscribe(command_topic, 2)
-
-    def home_assistant_values(self, data: Dict[str, Any]) -> None:
-        for register in self.MyBoiler.index:
-            if not 'component' in register:
-                continue
-            component = register['component']
-            if not 'name' in register: 
-                continue
-            object_id = register['name']
-            self.ha_value(data, component=component, object_id=object_id)
-
-    def ha_value(self, data: Dict[str, Any], component: str, object_id: str):
-        topic_header = self._mqtt_topic_header(component, object_id)
-        
-        topic_state = f'{topic_header}/state'
-        self.ha_state(topic_state, data[object_id])
-
-    def ha_state(self, topic_state: str, state: Any):
-        self.mqttc.publish(topic_state, state).wait_for_publish()
 
     def home_assistant_attributes(self) -> None:
         for register in self.MyBoiler.index:
@@ -872,8 +858,12 @@ class DiematicApp:
             value = self.parse_payload(msg.payload)
             if value is not None:
                 def callback():
-                    topic_state = topic_parts[0]+'/'+topic_parts[1]+'/'+topic_parts[2]+'/'+topic_parts[3]+'/state'
-                    self.ha_state(topic_state, value)
+                    # This is generating a process lock
+                    # self.MyBoiler.browse_registers()
+                    # data = self.MyBoiler.fetch_data()
+                    # mqtt_json_body = json.dumps(data, indent=2)
+                    # self.mqttc.publish(self.mqtt_topic, mqtt_json_body).wait_for_publish()
+                    return
                 self.MyBoiler.set_write_pending(varname, value, callback)
                 self.check_pending_writes()
 

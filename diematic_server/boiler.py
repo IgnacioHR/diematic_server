@@ -2,7 +2,7 @@ import logging
 
 from datetime import datetime
 import threading
-from typing import Any, Dict
+from typing import Any
 
 log = logging.getLogger()
 
@@ -116,7 +116,8 @@ class Boiler:
     def _encode_decimal(self, value, decimals=0):
         decimalvalue = int(value*10**decimals)
         if decimalvalue < 0:
-            return (-decimalvalue & 0x7FFF) | 0x8000
+            positivevalue = -decimalvalue
+            return (positivevalue & 0x7FFF) | 0x8000
         return decimalvalue & 0x7FFF
 
     def _decode_errorcode(self, value_int):
@@ -367,7 +368,7 @@ class Boiler:
                 output += "{:d}: {:#04x}\n".format(id, self.registers[id])
         return output
 
-    def fetch_data(self) -> Dict[str, Any]:
+    def fetch_data(self) -> dict[str, Any]:
         """ 
         Returns a dictionary of values from the boiler. 
         """

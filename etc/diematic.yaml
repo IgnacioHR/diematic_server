@@ -66,7 +66,7 @@ registers:
       desc: Summer/Winter temperature set point
       type: DiematicOneDecimal
       component: number
-      unit: °C
+      unit: CelsiusTemperature
       icon: mdi:knob
       entity_category: config
       device_class: temperature
@@ -79,7 +79,7 @@ registers:
       desc: Outdoor temperature activating antifreeze
       type: DiematicOneDecimal
       component: number
-      unit: °C
+      unit: CelsiusTemperature
       icon: mdi:knob
       entity_category: config
       device_class: temperature
@@ -127,7 +127,7 @@ registers:
       desc: Read of the average outdoor temperature
       type: DiematicOneDecimal
       component: sensor
-      unit: °C
+      unit: CelsiusTemperature
       icon: mdi:home-thermometer
       device_class: temperature
       entity_category: diagnostic
@@ -1131,7 +1131,7 @@ registers:
       desc: Minimum temperature of the circuit A
       type: DiematicOneDecimal
       component: number
-      unit: °C
+      unit: CelsiusTemperature
       icon: mdi:thermometer-low
       entity_category: config
       device_class: temperature
@@ -1143,7 +1143,7 @@ registers:
       desc: Maximum temperature of the circuit A
       type: DiematicOneDecimal
       component: number
-      unit: °C
+      unit: CelsiusTemperature
       icon: mdi:thermometer-high
       entity_category: config
       device_class: temperature
@@ -1269,7 +1269,7 @@ registers:
       name: temperature_external
       desc: Read of the outdoor sensor
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       ha: true
       component: sensor
       icon: mdi:home-thermometer
@@ -1281,7 +1281,7 @@ registers:
       name: temperature_boiler
       desc: Readment of the flow sensor of the boiler
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:fire
       device_class: temperature
@@ -1292,7 +1292,7 @@ registers:
       name: temperature_tank
       desc: Read of domestic hot water sensor
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:water-thermometer
       device_class: temperature
@@ -1312,7 +1312,7 @@ registers:
       name: temperature_retour_aux
       desc: Read of the return sensor
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:pipe
       device_class: temperature
@@ -1354,7 +1354,7 @@ registers:
       name: temperature_room_circuit_a
       desc: Read of the room sensor circuit A
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       ha: true
       component: sensor
       icon: mdi:thermometer
@@ -1366,7 +1366,7 @@ registers:
       name: temperature_room_circuit_a_calcule
       desc: By the controller calculated outlet setpoint Circ A
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:thermometer
       device_class: temperature
@@ -1389,7 +1389,7 @@ registers:
       name: temperature_chaud_calcule
       desc: By the controller calculated water setpoint
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:thermometer
       device_class: temperature
@@ -1400,7 +1400,7 @@ registers:
       name: temperature_outlet_a
       desc: Read of the outlet temperature Circ A
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:thermometer
       device_class: temperature
@@ -1420,7 +1420,7 @@ registers:
       name: temperature_exchange
       desc: Heat Exchanger temperature
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:thermometer
       device_class: temperature
@@ -1431,7 +1431,7 @@ registers:
       name: temp_dia_a
       desc: Wished room temperature in comfort period of the circuit A
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: number
       icon: mdi:knob
       entity_category: config
@@ -1444,7 +1444,7 @@ registers:
       name: temp_noche_a
       desc: Wished room temperature in reduced period of the circuit A
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: number
       icon: mdi:knob
       entity_category: config
@@ -1457,7 +1457,7 @@ registers:
       name: temp_antihielo_a
       desc: Minimal authorized room temperature circuit A
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: number
       icon: mdi:knob
       entity_category: config
@@ -1488,7 +1488,7 @@ registers:
       name: temp_dia_b
       type: DiematicOneDecimal
       desc: Day B
-      unit: °C
+      unit: CelsiusTemperature
     - id: 657
       name: temp_noche_b
       type: DiematicOneDecimal
@@ -1514,7 +1514,7 @@ registers:
       name: temp_dia_acs
       desc: Wished domestic day hot water temperature
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: number
       icon: mdi:knob
       entity_category: config
@@ -1527,7 +1527,7 @@ registers:
       name: temp_noche_acs
       desc: Wished domestic night hot water temperature
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: number
       icon: mdi:knob
       entity_category: config
@@ -1579,7 +1579,7 @@ registers:
       name: temp_calc_second
       desc: Secondary calculated setpoint
       type: DiematicOneDecimal
-      unit: °C
+      unit: CelsiusTemperature
       component: sensor
       icon: mdi:thermometer
       device_class: temperature
