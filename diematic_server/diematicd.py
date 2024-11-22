@@ -348,6 +348,10 @@ class DiematicApp:
         
         if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured'):
             try:
+                if self.mqtt_inform_available:
+                    self.mqttc.publish(self.mqtt_topic_available, 'online').wait_for_publish()
+                    self.mqtt_inform_available = False
+
                 if self.ha_discovery and self.shall_run_discovery:
                     self.home_assistant_discovery(data)
                     self.shall_run_discovery = False
@@ -840,6 +844,7 @@ class DiematicApp:
                 client.on_connect = self.on_mqtt_connect
                 client.on_disconnect = self.on_mqtt_disconnect
                 client.on_message = self.on_mqtt_message
+                client.on_connect_fail = self.on_mqtt_connect_fail
                 client.will_set(self.mqtt_topic_available, 'offline', 1)
             except Exception as e:
                 log.error('mqtt found in configuration file but connection raised the following error:',e)
@@ -863,7 +868,6 @@ class DiematicApp:
                 connection = self.mqttc.connect(broker, port, 60, clean_start=True) if broker is not None and port is not None else 'Connection parameters are missing'
                 if connection == mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
                     self.mqttc.loop_start()
-                    self.mqttc.publish(self.mqtt_topic_available, 'online').wait_for_publish()
                 else:
                     log.error(f'Can\'t connect to mqtt broker, error code is {connection}')
             except Exception as e:
@@ -872,11 +876,15 @@ class DiematicApp:
     def on_mqtt_connect(self, client, userdata, flags, rc, properties):
         self.mqtt_connected = True
         self.mqtt_connecting = False
+        self.mqtt_inform_available = True
         log.info('MQTT Connected successfully')
 
     def on_mqtt_disconnect(self, client, userdata, flags, rc, properties):
         self.mqtt_connected = False
         log.info('MQTT Disconncted!')
+
+    def on_mqtt_connect_fail(self, client, userdata):
+        log.info('MQTT connect fail!')
 
     def on_mqtt_message(self, client, userdata, msg: mqtt.MQTTMessage):
         log.info(f'Message: userdata:{userdata} topic:{msg.topic} payload:{str(msg.payload)} retained:{msg.retain}')
