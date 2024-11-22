@@ -70,8 +70,11 @@ class DiematicWebRequestHandler:
 		for register in boiler.index:
 			if 'type' in list(register) and register['type'] == 'bits':
 				for bit in register['bits']:
-					if bit != "io_unused":
-						DiematicWebRequestHandler.parameter_names.append(bit)
+					if type(bit) is str:
+						if bit != "io_unused":
+							DiematicWebRequestHandler.parameter_names.append(bit)
+					elif type(bit) is dict:
+						DiematicWebRequestHandler.parameter_names.append(bit['name'])
 			elif 'name' in list(register):
 				DiematicWebRequestHandler.parameter_names.append(register['name'])
 		DiematicWebRequestHandler.parameter_names.sort()

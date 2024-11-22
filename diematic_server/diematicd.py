@@ -418,17 +418,39 @@ class DiematicApp:
             suggested_display_precision = register.get('suggested_display_precision', None)
             self.ha_discover(
                 prefix, uuid, model, sw_version, retain, subtopic, device_name,
-                component=component, object_id=object_id, device_class=device_class, 
-                entity_category=entity_category, icon=icon, state_class=state_class, 
+                component=component, object_id=object_id, entity_category=entity_category, 
+                icon=icon,
+                device_class=device_class, state_class=state_class, 
                 unit=unit, min=min, max=max, step=step, value_template=value_template, 
                 command_template=command_template, options=options,
                 suggested_display_precision=suggested_display_precision
             )
+        
+        bitstypes = [b for x in self.MyBoiler.index if x.get('type', None) == 'bits' and x.get('bits', None) is not None for b in x['bits'] ]
+        for bit in bitstypes:
+            if type(bit) is dict:
+                self.ha_discover(
+                    prefix, uuid, model, sw_version, retain, subtopic, device_name,
+                    component='binary_sensor', object_id=bit['name'], 
+                    entity_category='diagnostic', icon='mdi:pump', payload_on='1', payload_off='0'
+                )
+        
+        # for circuit in ("a", "b", "c"):
+        #     if f"monday_{circuit}_0000_0030" in bitstypes:
+        #         self.ha_discover(
+        #             prefix, uuid, model, sw_version, retain, subtopic, device_name,
+        #             component='binary_sensor', object_id=f"io_circ_{circuit}_pump_on", 
+        #             entity_category='diagnostic', icon='mdi:pump', payload_on='1', payload_off='0'
+        #         )
 
-    def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str, retain: bool, subtopic: str, device_name: str,
-        component: str, object_id: str, device_class: str, entity_category: str, icon: str, state_class: str, unit: str,
-        min: float = None, max: float = None, step: float = None, value_template: str = None, command_template: str = None,
-        options: list[str] = None, suggested_display_precision: int = None
+
+    def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str, retain: bool, subtopic: str, 
+        device_name: str, component: str, object_id: str, entity_category: str, icon: str, 
+        device_class: str = None, state_class: str = None, unit: str = None,
+        min: float = None, max: float = None, step: float = None, 
+        value_template: str = None, command_template: str = None,
+        options: list[str] = None, suggested_display_precision: int = None,
+        payload_on: str = None, payload_off: str = None
     ):
         entity_name = self.MyBoiler.get_register_field(object_id, 'desc')
         topic_head = f'{prefix}/{component}/{uuid}/{object_id}'
@@ -492,6 +514,12 @@ class DiematicApp:
             self.command_topic(topic_head, object_id, config)
         if component == 'sensor':
             config['platform'] = 'sensor'
+        if component == 'binary_sensor':
+            config['platform'] = 'binary_sensor'
+        if payload_on is not None:
+            config['payload_on'] = payload_on
+        if payload_off is not None:
+            config['payload_off'] = payload_off
         
         config_str = json.dumps(config, indent=2)
         self.mqttc.publish(topic, config_str).wait_for_publish()

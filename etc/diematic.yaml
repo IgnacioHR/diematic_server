@@ -1232,12 +1232,18 @@ registers:
           - io_burder_1_2
           - io_hydraulic_valve_open
           - io_hydraulic_valve_close
-          - io_boiler_pump
+          - bit:
+            name: io_boiler_pump
+            desc: Boiler pump
     - id: 475
       type: bits
       bits:
-          - io_dhw_pump_on
-          - io_circ_a_pump_on
+          - bit:
+            name: io_dhw_pump_on
+            desc: Hot water pump
+          - bit:
+            name: io_circ_a_pump_on
+            desc: Circuit A pump
           - io_circ_a_3wv_open
           - io_circ_a_3wv_close
           - io_circ_b_pump_on
@@ -1246,9 +1252,15 @@ registers:
           - io_circ_c_pump_on
           - io_circ_c_3wv_open
           - io_circ_c_3wv_close
-          - io_aux_pump_1_on
-          - io_aux_pump_2_on
-          - io_aux_pump_3_on
+          - bit:
+            name: io_aux_pump_1_on
+            desc: Aux pump 1
+          - bit:
+            name: io_aux_pump_2_on
+            desc: Aux pump 2
+          - bit:
+            name: io_aux_pump_3_on
+            desc: Aux pump 3
           - io_phone_output
     - id: 503
       name: power
@@ -1592,7 +1604,9 @@ registers:
           - io_unused
           - io_direct_circuit_off
           - io_direct_circuit_3wv_off
-          - io_secondary_pump
+          - bit: 
+            name: io_secondary_pump
+            desc: Secondary pump
           - io_unused
           - io_unused
           - io_unused

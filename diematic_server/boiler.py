@@ -24,8 +24,9 @@ class Boiler:
 
                 if 'type' in register and register['type'] == 'bits':
                     for varname in register['bits']:
-                        self._init_register_value(varname, register['id'], influx)
-                        self.attribute_list.append(varname)
+                        realvarname = varname if type(varname) is str else varname['name']
+                        self._init_register_value(realvarname, register['id'], influx)
+                        self.attribute_list.append(realvarname)
                 
                 elif 'name' in register and 'id' in register:
                     is_bits = 'type' in register and register['type'] == 'bits'
@@ -37,7 +38,6 @@ class Boiler:
     def _init_register_value(self, varname, id, influx):
         # this method is protected by self.lock
         setattr(self, varname, {'name': varname, 'status': 'init', 'value': None, 'id': id, 'influx': influx})
-
 #       {
 #           'name': varname,
 #           'value': registervalue, 
@@ -50,7 +50,8 @@ class Boiler:
 
     def _set_register_value(self, varname, registervalue):
         # this method is protected by self.lock
-        previous_value = getattr(self, varname, {'name': varname, 'status': 'init', 'value': registervalue})
+        realvarname = varname if type(varname) is str else varname['name']
+        previous_value = getattr(self, realvarname, {'name': realvarname, 'status': 'init', 'value': registervalue})
         varvalue = previous_value.copy()
         prestatus = previous_value.get('status')
         if prestatus == 'init':
@@ -61,7 +62,7 @@ class Boiler:
             varvalue['value'] = registervalue
             varvalue['read'] = datetime.now().isoformat()
         varvalue['status'] = status
-        setattr(self, varname, varvalue)
+        setattr(self, realvarname, varvalue)
 
     def _add_register_field(self, varname, field, value):
         previous_value = getattr(self, varname)
@@ -307,7 +308,8 @@ class Boiler:
             if register['type'] == 'bits':
                 for i in range(len(register['bits'])):
                     bit_varname = register['bits'][i]
-                    if bit_varname == varname:
+                    checkname = bit_varname if type(bit_varname) is str else bit_varname['name']
+                    if checkname == varname:
                         return register
             else:
                 if register.get('name') == varname:
@@ -329,10 +331,13 @@ class Boiler:
                 self._set_register_value(varname, register_value)
             for i in range(len(register['bits'])):
                 bit_varname = register['bits'][i]
-                if bit_varname == 'io_unused':
+                realvarname = bit_varname if type(bit_varname) is str else bit_varname['name']
+                if realvarname == 'io_unused':
                     continue
                 bit_value = register_value >> i & 1
-                self._set_register_value(bit_varname, bit_value)
+                self._set_register_value(realvarname, bit_value)
+                if 'desc' in bit_varname:
+                    self._add_register_field(bit_varname['name'], 'desc', bit_varname['desc'])
         else:
             if 'name' in register:
                 varname = register.get('name')
@@ -431,10 +436,11 @@ class Boiler:
                 overallvalue = 0
                 for i in range(len(register['bits'])):
                     bit_varname = register['bits'][i]
-                    if bit_varname == 'io_unused':
+                    checkvarname = bit_varname if type(bit_varname) is str else bit_varname['name']
+                    if checkvarname == 'io_unused':
                         continue
-                    if bit_varname != write['name']:
-                        bit_value = getattr(self, bit_varname)['value'] << i
+                    if checkvarname != write['name']:
+                        bit_value = getattr(self, checkvarname)['value'] << i
                         overallvalue = overallvalue | bit_value
                     else:
                         bit_value = write['newvalue'] << i
