@@ -220,8 +220,7 @@ class DiematicApp:
 
 
     def start_main_program(self):
-        x = threading.Thread(target=self.main_program_loop)
-        x.setDaemon(True)
+        x = threading.Thread(target=self.main_program_loop, daemon=True)
         x.start()
         if self.args.server == 'loop':
             x.join()
