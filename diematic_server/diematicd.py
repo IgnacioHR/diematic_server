@@ -1074,6 +1074,8 @@ def parse_args(app, argv=None):
     app.mqtt_connected = False
     app.mqtt_connecting = False
 
+    app.mqtt_inform_available = False
+
     app.action = app.args.action
     if app.args.action == 'runonce':
         if not ('-b' in argv or '--backend' in argv):
