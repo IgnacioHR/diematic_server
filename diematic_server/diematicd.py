@@ -116,6 +116,9 @@ class DiematicApp:
         self.connection_lock = None
 
         self.first_run = True
+        self.mqtt_loop_started = False
+        self.mqtt_connected = False
+        self.mqtt_connecting = False
 
         return
 
@@ -838,13 +841,18 @@ class DiematicApp:
                 if self.mqtt_connected:
                     self.mqttc.disconnect()    
                 self.mqtt_connected = False
-                client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, protocol=mqtt.MQTTv5)
+                client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, client_id=f"diematicd_{self.cfg['boiler']['uuid']}", protocol=mqtt.MQTTv5)
                 self.mqttc = client
                 client.on_connect = self.on_mqtt_connect
                 client.on_disconnect = self.on_mqtt_disconnect
                 client.on_message = self.on_mqtt_message
                 client.on_connect_fail = self.on_mqtt_connect_fail
                 client.will_set(self.mqtt_topic_available, 'offline', 1)
+                if not self.mqtt_loop_started:
+                    loop_start_result = self.mqttc.loop_start()
+                    self.mqtt_loop_started = loop_start_result == mqtt.MQTT_ERR_SUCCESS
+                    if not self.mqtt_loop_started:
+                        log.error(f'Can\'t start mqtt loop, error code is {loop_start_result}')
             except Exception as e:
                 log.error('mqtt found in configuration file but connection raised the following error:',e)
 
@@ -865,9 +873,7 @@ class DiematicApp:
                 broker = self.args.mqtt_broker if self.mqtt_broker_explicit else (mqttk.get('broker', None) if mqtt is not None else None)
                 port = self.args.mqtt_port if self.mqtt_port_explicit else mqttk.get('port', 8883 if tls else 1883) if mqttk is not None else 8883 if tls else 1883
                 connection = self.mqttc.connect(broker, port, 60, clean_start=True) if broker is not None and port is not None else 'Connection parameters are missing'
-                if connection == mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
-                    self.mqttc.loop_start()
-                else:
+                if connection != mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
                     log.error(f'Can\'t connect to mqtt broker, error code is {connection}')
             except Exception as e:
                 log.error('mqtt found in configuration file but connection raised the following error:',e)
@@ -880,10 +886,10 @@ class DiematicApp:
 
     def on_mqtt_disconnect(self, client, userdata, flags, rc, properties):
         self.mqtt_connected = False
-        log.info('MQTT Disconncted!')
+        log.error('MQTT Disconncted!')
 
     def on_mqtt_connect_fail(self, client, userdata):
-        log.info('MQTT connect fail!')
+        log.error('MQTT connect fail!')
 
     def on_mqtt_message(self, client, userdata, msg: mqtt.MQTTMessage):
         log.info(f'Message: userdata:{userdata} topic:{msg.topic} payload:{str(msg.payload)} retained:{msg.retain}')
