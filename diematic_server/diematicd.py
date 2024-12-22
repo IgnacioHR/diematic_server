@@ -374,7 +374,9 @@ class DiematicApp:
                 self.mqttc.publish(self.mqtt_topic, mqtt_json_body).wait_for_publish()
                 log.info('Values published to mqtt')
             except RuntimeError as e:
-                log.error('Can\'t publish due to error: {err}'.format(err=e))
+                log.error('Can\'t publish due to RuntimeError: {err}'.format(err=e))
+            except ValueError as e:
+                log.error('Can\'t publish due to ValueError: {err}'.format(err=e))
 
     def _mqtt_device_keys(self) -> tuple[str, str]:
         """
