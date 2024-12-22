@@ -114,11 +114,14 @@ class DiematicApp:
         self.MODBUS_UNIT = None
         self.MODBUS_DEVICE = None
         self.connection_lock = None
+        self.log_modbus_errors = True
 
         self.first_run = True
         self.mqtt_loop_started = False
         self.mqtt_connected = False
         self.mqtt_connecting = False
+
+        self.loop_time = 60
 
         return
 
@@ -234,7 +237,7 @@ class DiematicApp:
                 self.do_main_program()
             except Exception as ex:
                 log.error('Exception inside do_main_program {err}'.format(err=ex))
-            time.sleep(60) # a minute
+            time.sleep(self.loop_time) # a minute
 
     def startWebServer(self):
         self._create_boiler()
@@ -271,11 +274,15 @@ class DiematicApp:
         self._create_boiler()
         self.shall_browse_registers = True
         loop = True
+        count = 0
         while loop:
             try:
                 self.run_sync_client()
                 loop = False
-            except DiematicModbusError:
+            except DiematicModbusError as e:
+                count += 1
+                if count > self.loop_time:
+                    raise e
                 time.sleep(1)
                 pass
         return
@@ -284,7 +291,10 @@ class DiematicApp:
         #enabling modbus communication
         if self.first_run:
             log.info("Connection parameters: device={port!r} timeout={timeout!r} baudrate={baudrate!r}".format(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE))
+            self.log_modbus_errors = True
             self.first_run = False
+        else:
+            self.log_modbus_errors = False
         try:
             with FileLock(self.connection_lock):
                 client = ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
@@ -300,7 +310,8 @@ class DiematicApp:
                         log.debug("Attempt to read registers from {} to {}".format(id_start, id_stop))
                         rr = client.read_holding_registers(count=(id_stop-id_start+1), address=id_start, unit=self.MODBUS_UNIT)
                         if rr.isError():
-                            log.error(rr.message)
+                            if self.log_modbus_errors:
+                                log.error(rr.message)
                             raise DiematicModbusError(rr.message)
                             # MyBoiler.registers.extend([None] * (id_stop-id_start+1))
                         else:
