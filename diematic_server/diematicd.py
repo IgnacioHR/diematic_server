@@ -348,7 +348,7 @@ class DiematicApp:
             else:
                 log.error(f'influxdb backend is missconfigured, please review configuration file and/or arguments')
         
-        if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured'):
+        if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured') and self.mqtt_connected:
             try:
                 if self.mqtt_inform_available:
                     self.mqttc.publish(self.mqtt_topic_available, 'online').wait_for_publish()
@@ -363,7 +363,7 @@ class DiematicApp:
                 self.mqttc.publish(self.mqtt_topic, mqtt_json_body).wait_for_publish()
                 log.info('Values published to mqtt')
             except RuntimeError as e:
-                log.error('Can\'t publish due to error:', e)
+                log.error('Can\'t publish due to error: {err}'.format(err=e))
 
     def _mqtt_device_keys(self) -> tuple[str, str]:
         """
@@ -854,7 +854,7 @@ class DiematicApp:
                     if not self.mqtt_loop_started:
                         log.error(f'Can\'t start mqtt loop, error code is {loop_start_result}')
             except Exception as e:
-                log.error('mqtt found in configuration file but connection raised the following error:',e)
+                log.error('mqtt found in configuration file but connection raised the following error: {err}'.format(err=e))
 
     def mqtt_connect(self):
         if not self.mqtt_connecting:
@@ -876,7 +876,7 @@ class DiematicApp:
                 if connection != mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
                     log.error(f'Can\'t connect to mqtt broker, error code is {connection}')
             except Exception as e:
-                log.error('mqtt found in configuration file but connection raised the following error:',e)
+                log.error('mqtt found in configuration file but connection raised the following error: {err}'.format(err=e))
 
     def on_mqtt_connect(self, client, userdata, flags, rc, properties):
         self.mqtt_connected = True
