@@ -860,7 +860,7 @@ class DiematicApp:
                 client.on_disconnect = self.on_mqtt_disconnect
                 client.on_message = self.on_mqtt_message
                 client.on_connect_fail = self.on_mqtt_connect_fail
-                client.will_set(self.mqtt_topic_available, 'offline', 1)
+                client.will_set(self.mqtt_topic_available, 'offline', 1, True)
                 if not self.mqtt_loop_started:
                     loop_start_result = self.mqttc.loop_start()
                     self.mqtt_loop_started = loop_start_result == mqtt.MQTT_ERR_SUCCESS
@@ -892,10 +892,13 @@ class DiematicApp:
                 log.error('mqtt found in configuration file but connection raised the following error: {err}'.format(err=e))
 
     def on_mqtt_connect(self, client, userdata, flags, rc, properties):
-        self.mqtt_connected = True
-        self.mqtt_connecting = False
-        self.mqtt_inform_available = True
-        log.info('MQTT Connected successfully')
+        if rc == 0:
+            self.mqtt_connected = True
+            self.mqtt_connecting = False
+            self.mqtt_inform_available = True
+            log.info('MQTT Connected successfully')
+        else:
+            log.info(f'MQTT Connected with code {rc}')
 
     def on_mqtt_disconnect(self, client, userdata, flags, rc, properties):
         self.mqtt_connected = False
