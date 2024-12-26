@@ -54,7 +54,7 @@ mqtt:
     port: 1883
     user: your mqtt user, optional
     password: your mqtt user credentials
-    retain: false
+    retain: true
     tls: false
     topic: diematic2mqtt/boiler
     discovery:

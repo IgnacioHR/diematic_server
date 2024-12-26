@@ -362,7 +362,7 @@ class DiematicApp:
         if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured') and self.mqtt_connected:
             try:
                 if self.mqtt_inform_available:
-                    self.mqttc.publish(self.mqtt_topic_available, 'online').wait_for_publish()
+                    self.mqttc.publish(self.mqtt_topic_available, 'online', qos=1, retain=True).wait_for_publish()
                     self.mqtt_inform_available = False
 
                 if self.ha_discovery and self.shall_run_discovery:
@@ -371,7 +371,7 @@ class DiematicApp:
                     log.info('Sending discovery info')
                     time.sleep(0.3)
                 mqtt_json_body = json.dumps(data, indent=2)
-                self.mqttc.publish(self.mqtt_topic, mqtt_json_body).wait_for_publish()
+                self.mqttc.publish(self.mqtt_topic, mqtt_json_body, qos=1, retain=True).wait_for_publish()
                 log.info('Values published to mqtt')
             except RuntimeError as e:
                 log.error('Can\'t publish due to RuntimeError: {err}'.format(err=e))
@@ -402,7 +402,7 @@ class DiematicApp:
         device_name = self.cfg['boiler'].get('name', 'Boiler')
         model = data.get('boiler_model', 'Unknown')
         sw_version = str(data.get('software_version', 0))
-        retain = False
+        retain = True
         if self.mqtt_retain_explicit:
             retain = self.args.mqtt_retain
         elif 'mqtt' in self.cfg and 'retain' in self.cfg['mqtt']:
@@ -541,7 +541,7 @@ class DiematicApp:
             config['payload_off'] = payload_off
         
         config_str = json.dumps(config, indent=2)
-        self.mqttc.publish(topic, config_str).wait_for_publish()
+        self.mqttc.publish(topic, config_str, qos=1, retain=True).wait_for_publish()
         log.info(f'Entity {object_id} discovered via mqtt')
 
     def command_topic(self, topic_head: str, object_id: str, config: dict[str, Any]):
@@ -563,7 +563,7 @@ class DiematicApp:
     def ha_attributes(self, component: str, object_id: str):
         topic_header = self._mqtt_topic_header(component, object_id)
         topic_attributes = f'{topic_header}/attributes'
-        self.mqttc.publish(topic_attributes, '{}').wait_for_publish()
+        self.mqttc.publish(topic_attributes, '{}', qos=1, retain=True).wait_for_publish()
 
     def read_config_file(self):
         # --------------------------------------------------------------------------- #
