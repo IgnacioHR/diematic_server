@@ -81,6 +81,8 @@ DEFAULT_MODBUS_BAUDRATE = 9600
 DEFAULT_MODBUS_UNIT = 10
 DEFAULT_MODBUS_DEVICE = None
 
+HOMEASSISTANT_STATUS_TOPIC = 'homeassistant/status'
+
 class DaemonRunnerError(Exception):
     """ Abstract base class for errors from DaemonRunner. """
 
@@ -362,7 +364,7 @@ class DiematicApp:
         if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured') and self.mqtt_connected:
             try:
                 if self.mqtt_inform_available:
-                    self.mqttc.publish(self.mqtt_topic_available, 'online', qos=1, retain=True).wait_for_publish()
+                    self.mqttc.publish(topic=self.mqtt_topic_available, payload='online', qos=0, retain=self.mqtt_retain).wait_for_publish()
                     self.mqtt_inform_available = False
 
                 if self.ha_discovery and self.shall_run_discovery:
@@ -371,7 +373,7 @@ class DiematicApp:
                     log.info('Sending discovery info')
                     time.sleep(0.3)
                 mqtt_json_body = json.dumps(data, indent=2)
-                self.mqttc.publish(self.mqtt_topic, mqtt_json_body, qos=1, retain=True).wait_for_publish()
+                self.mqttc.publish(topic=self.mqtt_topic, payload=mqtt_json_body, qos=0, retain=self.mqtt_retain).wait_for_publish()
                 log.info('Values published to mqtt')
             except RuntimeError as e:
                 log.error('Can\'t publish due to RuntimeError: {err}'.format(err=e))
@@ -402,11 +404,7 @@ class DiematicApp:
         device_name = self.cfg['boiler'].get('name', 'Boiler')
         model = data.get('boiler_model', 'Unknown')
         sw_version = str(data.get('software_version', 0))
-        retain = True
-        if self.mqtt_retain_explicit:
-            retain = self.args.mqtt_retain
-        elif 'mqtt' in self.cfg and 'retain' in self.cfg['mqtt']:
-            retain = self.cfg['mqtt'].get('retain')
+        qos = 0
         subtopic = self.mqtt_topic.split('/').pop()
         for register in self.MyBoiler.index:
             if not 'component' in register:
@@ -436,7 +434,7 @@ class DiematicApp:
             options = register.get('options', None)
             suggested_display_precision = register.get('suggested_display_precision', None)
             self.ha_discover(
-                prefix, uuid, model, sw_version, retain, subtopic, device_name,
+                prefix, uuid, model, sw_version, qos, subtopic, device_name,
                 component=component, object_id=object_id, entity_category=entity_category, 
                 icon=icon,
                 device_class=device_class, state_class=state_class, 
@@ -449,7 +447,7 @@ class DiematicApp:
         for bit in bitstypes:
             if type(bit) is dict:
                 self.ha_discover(
-                    prefix, uuid, model, sw_version, retain, subtopic, device_name,
+                    prefix, uuid, model, sw_version, qos, subtopic, device_name,
                     component='binary_sensor', object_id=bit['name'], 
                     entity_category='diagnostic', icon='mdi:pump', payload_on='1', payload_off='0'
                 )
@@ -463,10 +461,10 @@ class DiematicApp:
         #         )
 
 
-    def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str, retain: bool, subtopic: str, 
-        device_name: str, component: str, object_id: str, entity_category: str, icon: str, 
-        device_class: str = None, state_class: str = None, unit: str = None,
-        min: float = None, max: float = None, step: float = None, 
+    def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str,
+        qos: int, subtopic: str, device_name: str, component: str, object_id: str, 
+        entity_category: str, icon: str, device_class: str = None, state_class: str = None, 
+        unit: str = None, min: float = None, max: float = None, step: float = None, 
         value_template: str = None, command_template: str = None,
         options: list[str] = None, suggested_display_precision: int = None,
         payload_on: str = None, payload_off: str = None
@@ -488,6 +486,7 @@ class DiematicApp:
                 #     "topic": f"{topic_head}/availability"
                 }
             ],
+            "availability_mode": "all",
             "device": {
                 "identifiers": [f"{uuid}"],
                 "manufacturer": "De Dietrich",
@@ -497,14 +496,12 @@ class DiematicApp:
             },
             # "json_attributes_topic": f"{topic_head}/attributes",
             "name": f"{entity_name}",
-            "retain": retain,
             "state_topic": self.mqtt_topic,
             "value_template": f"{{{{ value_json.{object_id} }}}}",
             "unique_id": f"{uuid}_{object_id}",
             "entity_category": f"{entity_category}",
             "icon": f"{icon}",
             "object_id": f"{subtopic}_{object_id}",
-            "qos": 1,
         }
         if device_class is not None:
             config['device_class'] = device_class
@@ -541,7 +538,7 @@ class DiematicApp:
             config['payload_off'] = payload_off
         
         config_str = json.dumps(config, indent=2)
-        self.mqttc.publish(topic, config_str, qos=1, retain=True).wait_for_publish()
+        self.mqttc.publish(topic=topic, payload=config_str, qos=qos, retain=self.mqtt_retain).wait_for_publish()
         log.info(f'Entity {object_id} discovered via mqtt')
 
     def command_topic(self, topic_head: str, object_id: str, config: dict[str, Any]):
@@ -549,21 +546,6 @@ class DiematicApp:
         config["command_topic"] = command_topic
         # subscribe to this topic
         self.mqttc.subscribe(command_topic, 2)
-
-    def home_assistant_attributes(self) -> None:
-        for register in self.MyBoiler.index:
-            if not 'component' in register:
-                continue
-            component = register['component']
-            if not 'name' in register: 
-                continue
-            object_id = register['name']
-            self.ha_attributes(component=component, object_id=object_id)
-
-    def ha_attributes(self, component: str, object_id: str):
-        topic_header = self._mqtt_topic_header(component, object_id)
-        topic_attributes = f'{topic_header}/attributes'
-        self.mqttc.publish(topic_attributes, '{}', qos=1, retain=True).wait_for_publish()
 
     def read_config_file(self):
         # --------------------------------------------------------------------------- #
@@ -839,6 +821,12 @@ class DiematicApp:
         self.mqtt_topic = self.args.mqtt_topic if self.mqtt_topic_explicit else mqttk.get('topic', 'diematic2mqtt/boiler') if mqttk is not None else 'diematic2mqtt/boiler'
         self.mqtt_topic_available = f'{self.mqtt_topic}/availability'
 
+        self.mqtt_retain = False
+        if self.mqtt_retain_explicit:
+            self.mqtt_retain = self.args.mqtt_retain
+        elif 'mqtt' in self.cfg and 'retain' in self.cfg['mqtt']:
+            self.mqtt_retain = self.cfg['mqtt'].get('retain')
+
         self.mqtt_client()
         self.mqtt_connect()
 
@@ -897,6 +885,8 @@ class DiematicApp:
             self.mqtt_connecting = False
             self.mqtt_inform_available = True
             log.info('MQTT Connected successfully')
+
+            self.mqttc.subscribe(HOMEASSISTANT_STATUS_TOPIC, 2)
         else:
             log.info(f'MQTT Connected with code {rc}')
 
@@ -909,6 +899,10 @@ class DiematicApp:
 
     def on_mqtt_message(self, client, userdata, msg: mqtt.MQTTMessage):
         log.info(f'Message: userdata:{userdata} topic:{msg.topic} payload:{str(msg.payload)} retained:{msg.retain}')
+        if msg.topic == HOMEASSISTANT_STATUS_TOPIC:
+            if self.parse_payload(msg.payload) == 'online':
+                self.shall_run_discovery = True if self.ha_discovery is not None else False
+            return
         topic_parts = msg.topic.split('/')
         if len(topic_parts) > 5 and topic_parts[4] == 'set':
             varname = topic_parts[5]
@@ -919,7 +913,7 @@ class DiematicApp:
                     # self.MyBoiler.browse_registers()
                     # data = self.MyBoiler.fetch_data()
                     # mqtt_json_body = json.dumps(data, indent=2)
-                    # self.mqttc.publish(self.mqtt_topic, mqtt_json_body).wait_for_publish()
+                    # TODO: Check the value written or errors
                     return
                 self.MyBoiler.set_write_pending(varname, value, callback)
                 self.check_pending_writes()
@@ -929,7 +923,11 @@ class DiematicApp:
         if type(payload) is bytes:
             decoded = payload.decode('utf8')
             if len(decoded) > 0:
-                return json.loads(decoded)
+                try:
+                    return json.loads(decoded)
+                except json.JSONDecodeError:
+                    pass
+                return decoded
             return None
         log.error(f'unkown value type for payload {payload}')
         return None
