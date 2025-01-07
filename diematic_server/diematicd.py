@@ -16,6 +16,7 @@ import time
 import threading
 import argparse
 import sys
+import systemd.daemon
 
 from lockfile import pidlockfile
 from boiler import Boiler 
@@ -226,7 +227,6 @@ class DiematicApp:
             loop = asyncio.get_event_loop()
             loop.run_forever()
 
-
     def start_main_program(self):
         x = threading.Thread(target=self.main_program_loop, daemon=True)
         x.start()
@@ -234,8 +234,12 @@ class DiematicApp:
             x.join()
 
     def main_program_loop(self) -> None:
+        notified = False
         while True:
             try:
+                if not notified and not self.args.foreground:
+                    systemd.daemon.notify("READY=1")
+                    notified = True
                 self.do_main_program()
             except Exception as ex:
                 log.error('Exception inside do_main_program {err}'.format(err=ex))
@@ -616,18 +620,18 @@ class DiematicApp:
         if self.args.server == 'both' and not self.args.foreground:
             try:
                 self._open_streams_from_app_stream_paths()
-                self._get_context().open()
+                with self._get_context():
+                    pid = os.getpid()
+                    message = self.start_message.format(pid=pid)
+                    emit_message(message, sys.stdout)
+                    self.run()
             except pidlockfile.AlreadyLocked as exc:
                 error = DaemonRunnerStartFailureError(
                         "PID file {pidfile.path!r} already locked".format(
                             pidfile=self._get_context().pidfile))
                 raise error from exc
-
-            pid = os.getpid()
-            message = self.start_message.format(pid=pid)
-            emit_message(message, sys.stdout)
-
-        self.run()
+        else:
+            self.run()
     
     def _runonce(self):
         self._reload_configuration(None,None)
