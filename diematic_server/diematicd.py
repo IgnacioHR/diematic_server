@@ -906,6 +906,7 @@ class DiematicApp:
         if msg.topic == HOMEASSISTANT_STATUS_TOPIC:
             if self.parse_payload(msg.payload) == 'online':
                 self.shall_run_discovery = True if self.ha_discovery is not None else False
+                self.mqtt_inform_available = True
             return
         topic_parts = msg.topic.split('/')
         if len(topic_parts) > 5 and topic_parts[4] == 'set':
