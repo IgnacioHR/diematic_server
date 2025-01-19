@@ -124,6 +124,8 @@ class DiematicApp:
         self.mqtt_connected = False
         self.mqtt_connecting = False
 
+        self.force_set_offline = False
+
         self.loop_time = 60
 
         return
@@ -368,8 +370,13 @@ class DiematicApp:
         if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured') and self.mqtt_connected:
             try:
                 if self.mqtt_inform_available:
-                    self.mqttc.publish(topic=self.mqtt_topic_available, payload='online', qos=0, retain=self.mqtt_retain).wait_for_publish()
-                    self.mqtt_inform_available = False
+                    log.info('Sending online message to mqtt')
+                    if self.force_set_offline:
+                        self.mqttc.publish(topic=self.mqtt_topic_available, payload='offline', qos=0, retain=self.mqtt_retain).wait_for_publish()
+                        self.force_set_offline = False
+                    else:
+                        self.mqttc.publish(topic=self.mqtt_topic_available, payload='online', qos=0, retain=self.mqtt_retain).wait_for_publish()
+                        self.mqtt_inform_available = False
 
                 if self.ha_discovery and self.shall_run_discovery:
                     self.home_assistant_discovery(data)
@@ -788,6 +795,7 @@ class DiematicApp:
 
     def _reload_configuration(self, _signal, _stack):
         """ Reload the configuration from the configuration file."""
+        log.info("Reloading configuration")
         if self.args.device:
             self.MODBUS_DEVICE = self.args.device
             self.connection_lock = self.MODBUS_DEVICE[self.MODBUS_DEVICE.rindex('/')+1:]
@@ -844,7 +852,9 @@ class DiematicApp:
             self.mqtt_started = True
             try:
                 if self.mqtt_connected:
-                    self.mqttc.disconnect()    
+                    self.mqttc.disconnect()
+                    self.mqttc.loop_stop()
+                    self.mqtt_loop_started = False
                 self.mqtt_connected = False
                 client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, client_id=f"diematicd_{self.cfg['boiler']['uuid']}", protocol=mqtt.MQTTv5)
                 self.mqttc = client
@@ -907,6 +917,8 @@ class DiematicApp:
             if self.parse_payload(msg.payload) == 'online':
                 self.shall_run_discovery = True if self.ha_discovery is not None else False
                 self.mqtt_inform_available = True
+            elif self.parse_payload(msg.payload) == 'offline':
+                self.force_set_offline = True
             return
         topic_parts = msg.topic.split('/')
         if len(topic_parts) > 5 and topic_parts[4] == 'set':
