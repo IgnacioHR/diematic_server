@@ -79,6 +79,14 @@ class DiematicWebRequestHandler:
 				DiematicWebRequestHandler.parameter_names.append(register['name'])
 		DiematicWebRequestHandler.parameter_names.sort()
 
+	@routes.get('')
+	async def redirect_to_parameters_home_1(request):
+		raise web.HTTPFound('/diematic')
+
+	@routes.get('/diematic')
+	async def redirect_to_parameters_home_1(request):
+		raise web.HTTPFound('/diematic/parameters')
+
 	@routes.get('/diematic/parameters')
 	async def send_list(request):
 		""" produces a list of well known register names."""

@@ -402,9 +402,9 @@ class DiematicApp:
         uuid = self.cfg['boiler']['uuid'].replace('-','')
         return [prefix, uuid]
 
-    def _mqtt_topic_header(self, component: str, object_id: str) -> str:
+    def _mqtt_topic_header(self, component: str, default_entity_id: str) -> str:
         prefix, uuid = self._mqtt_device_keys()
-        return f'{prefix}/{component}/{uuid}/{object_id}'
+        return f'{prefix}/{component}/{uuid}/{default_entity_id}'
 
     def home_assistant_discovery(self, data: dict[str, Any]) -> None:
         # --------------------------------------------------------------------------- #
@@ -423,13 +423,13 @@ class DiematicApp:
             component = register['component']
             if not 'name' in register: 
                 continue
-            object_id = register['name']
+            default_entity_id = register['name']
             if not 'entity_category' in register:
-                log.error(f'Preparing discovery of {object_id} entity_category is missing')
+                log.error(f'Preparing discovery of {default_entity_id} entity_category is missing')
                 continue
             entity_category = register['entity_category']
             if not 'icon' in register:
-                log.error(f'Preparing discovery of {object_id} icon is missing')
+                log.error(f'Preparing discovery of {default_entity_id} icon is missing')
                 continue
             icon = register['icon']
             unit = register.get('unit', None)
@@ -446,7 +446,7 @@ class DiematicApp:
             suggested_display_precision = register.get('suggested_display_precision', None)
             self.ha_discover(
                 prefix, uuid, model, sw_version, qos, subtopic, device_name,
-                component=component, object_id=object_id, entity_category=entity_category, 
+                component=component, default_entity_id=default_entity_id, entity_category=entity_category, 
                 icon=icon,
                 device_class=device_class, state_class=state_class, 
                 unit=unit, min=min, max=max, step=step, value_template=value_template, 
@@ -459,7 +459,7 @@ class DiematicApp:
             if type(bit) is dict:
                 self.ha_discover(
                     prefix, uuid, model, sw_version, qos, subtopic, device_name,
-                    component='binary_sensor', object_id=bit['name'], 
+                    component='binary_sensor', default_entity_id=bit['name'], 
                     entity_category='diagnostic', icon='mdi:pump', payload_on='1', payload_off='0'
                 )
         
@@ -467,21 +467,21 @@ class DiematicApp:
         #     if f"monday_{circuit}_0000_0030" in bitstypes:
         #         self.ha_discover(
         #             prefix, uuid, model, sw_version, retain, subtopic, device_name,
-        #             component='binary_sensor', object_id=f"io_circ_{circuit}_pump_on", 
+        #             component='binary_sensor', default_entity_id=f"io_circ_{circuit}_pump_on", 
         #             entity_category='diagnostic', icon='mdi:pump', payload_on='1', payload_off='0'
         #         )
 
 
     def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str,
-        qos: int, subtopic: str, device_name: str, component: str, object_id: str, 
+        qos: int, subtopic: str, device_name: str, component: str, default_entity_id: str, 
         entity_category: str, icon: str, device_class: str = None, state_class: str = None, 
         unit: str = None, min: float = None, max: float = None, step: float = None, 
         value_template: str = None, command_template: str = None,
         options: list[str] = None, suggested_display_precision: int = None,
         payload_on: str = None, payload_off: str = None
     ):
-        entity_name = self.MyBoiler.get_register_field(object_id, 'desc')
-        topic_head = f'{prefix}/{component}/{uuid}/{object_id}'
+        entity_name = self.MyBoiler.get_register_field(default_entity_id, 'desc')
+        topic_head = f'{prefix}/{component}/{uuid}/{default_entity_id}'
         topic = f'{topic_head}/config'
         config = {
             "config_topic": topic,
@@ -508,11 +508,11 @@ class DiematicApp:
             # "json_attributes_topic": f"{topic_head}/attributes",
             "name": f"{entity_name}",
             "state_topic": self.mqtt_topic,
-            "value_template": f"{{{{ value_json.{object_id} }}}}",
-            "unique_id": f"{uuid}_{object_id}",
+            "value_template": f"{{{{ value_json.{default_entity_id} }}}}",
+            "unique_id": f"{uuid}_{default_entity_id}",
             "entity_category": f"{entity_category}",
             "icon": f"{icon}",
-            "object_id": f"{subtopic}_{object_id}",
+            "default_entity_id": f"{subtopic}_{default_entity_id}",
         }
         if device_class is not None:
             config['device_class'] = device_class
@@ -538,7 +538,7 @@ class DiematicApp:
         # if component == 'sensor':
         #     config["state_class"] = f"{state_class}"
         if component == 'number' or component == 'select':
-            self.command_topic(topic_head, object_id, config)
+            self.command_topic(topic_head, default_entity_id, config)
         if component == 'sensor':
             config['platform'] = 'sensor'
         if component == 'binary_sensor':
@@ -550,10 +550,10 @@ class DiematicApp:
         
         config_str = json.dumps(config, indent=2)
         self.mqttc.publish(topic=topic, payload=config_str, qos=qos, retain=self.mqtt_retain).wait_for_publish()
-        log.info(f'Entity {object_id} discovered via mqtt')
+        log.info(f'Entity {default_entity_id} discovered via mqtt')
 
-    def command_topic(self, topic_head: str, object_id: str, config: dict[str, Any]):
-        command_topic = f"{topic_head}/set/{object_id}"
+    def command_topic(self, topic_head: str, default_entity_id: str, config: dict[str, Any]):
+        command_topic = f"{topic_head}/set/{default_entity_id}"
         config["command_topic"] = command_topic
         # subscribe to this topic
         self.mqttc.subscribe(command_topic, 2)
