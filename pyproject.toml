@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diematic-server"
+dynamic = ["version"]
+
+description = "Unix daemon and supporting models for publishing data from Diematic DeDietrich boiler"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+
+authors = [
+  { name = "Ignacio Hernández-Ros", email = "ignacio@hernandez-ros.com" },
+]
+
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: No Input/Output (Daemon)",
+  "Intended Audience :: Developers",
+  "Operating System :: Unix",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Home Automation",
+]
+
+# Copia aquí las dependencias de instalación (las que hoy tengas en setup.cfg/setup.py)
+dependencies = [
+	"aiohttp>=3.11.11",
+	"influxdb>=5.3.2",
+	"pymodbus>=2.2.0",
+	"python-daemon>=3.1.2",
+	"PyYAML>=6.0.2",
+	"paho-mqtt>=2.1.0",
+	"systemd-python>=235",
+]
+
+[project.urls]
+Homepage = "https://github.com/IgnacioHR/diematic_server"
+Source = "https://github.com/IgnacioHR/diematic_server"
+Issues = "https://github.com/IgnacioHR/diematic_server/issues"
+
+[project.scripts]
+diematicd = "diematic_server.diematicd:main"
+
+# --- Configuración específica de setuptools ---
+
+[tool.setuptools.dynamic]
+# Única fuente de verdad para la versión: un __version__ en tu paquete
+version = { attr = "diematic_server.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["diematic_server*"]
+
+# Si necesitas incluir ficheros no-Python dentro del paquete:
+# [tool.setuptools.package-data]
+# "diematic_server" = ["etc/*", "images/*", ...]

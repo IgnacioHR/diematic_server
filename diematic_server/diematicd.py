@@ -1184,7 +1184,10 @@ def is_process_already_running(pidfile):
 
     return result
 
-if __name__ == '__main__':
+def main():
     app = DiematicApp()
     parse_args(app)
     app.do_action()
+
+if __name__ == '__main__':
+    main()

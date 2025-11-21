@@ -6,4 +6,5 @@ the configuration file in yaml format that will provide the
 registers available in your boiler. There is more information
 and examples in the diematicd.py file
 """
+__version__ = "3.6.0"
 from boiler import Boiler
