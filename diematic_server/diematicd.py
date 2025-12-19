@@ -128,6 +128,8 @@ class DiematicApp:
 
         self.loop_time = 60
 
+        self.last_time_mqtt_discovery = time.monotonic()
+
         return
 
     def _get_context(self):
@@ -366,6 +368,10 @@ class DiematicApp:
                     log.error(e)
             else:
                 log.error(f'influxdb backend is missconfigured, please review configuration file and/or arguments')
+
+        # Check if 15 minutes passed since last time mqtt_discovery has sent
+        if self.ha_discovery and not self.shall_run_discovery and time.monotonic() > self.last_time_mqtt_discovery + (15 * 60):
+            self.shall_run_discovery = True
         
         if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured') and self.mqtt_connected:
             try:
@@ -382,6 +388,7 @@ class DiematicApp:
                     self.home_assistant_discovery(data)
                     self.shall_run_discovery = False
                     log.info('Sending discovery info')
+                    self.last_time_mqtt_discovery = time.monotonic()
                     time.sleep(0.3)
                 mqtt_json_body = json.dumps(data, indent=2)
                 self.mqttc.publish(topic=self.mqtt_topic, payload=mqtt_json_body, qos=0, retain=self.mqtt_retain).wait_for_publish()
@@ -512,7 +519,6 @@ class DiematicApp:
             "unique_id": f"{uuid}_{object_id}",
             "entity_category": f"{entity_category}",
             "icon": f"{icon}",
-            "object_id": f"{subtopic}_{object_id}",
             "default_entity_id": f"{component}.{subtopic}_{object_id}",
         }
         if device_class is not None:
@@ -907,7 +913,7 @@ class DiematicApp:
 
     def on_mqtt_disconnect(self, client, userdata, flags, rc, properties):
         self.mqtt_connected = False
-        log.error('MQTT Disconncted!')
+        log.error('MQTT Disconnected!')
 
     def on_mqtt_connect_fail(self, client, userdata):
         log.error('MQTT connect fail!')

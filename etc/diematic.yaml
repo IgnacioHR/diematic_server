@@ -1301,14 +1301,14 @@ registers:
       state_class: measurement
     - id: 603
       name: temperature_tank
-      desc: Read of domestic hot water sensor
+      desc: ACS sonda superior
       type: DiematicOneDecimal
       unit: CelsiusTemperature
       component: sensor
       icon: mdi:water-thermometer
       device_class: temperature
       entity_category: diagnostic
-      suggested_display_precision: 0
+      suggested_display_precision: 1
       state_class: measurement
     # - id: 604
     #   name: temperature_smoke
@@ -1423,7 +1423,15 @@ registers:
       type: DiematicOneDecimal
     - id: 623
       name: temperature_aux_2
+      desc: ACS sonda inferior
       type: DiematicOneDecimal
+      unit: CelsiusTemperature
+      component: sensor
+      icon: mdi:water-thermometer
+      device_class: temperature
+      entity_category: diagnostic
+      suggested_display_precision: 1
+      state_class: measurement
     - id: 624
       name: temperature_univ
       type: DiematicOneDecimal
