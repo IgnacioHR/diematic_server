@@ -20,7 +20,7 @@ import systemd.daemon
 
 from lockfile import pidlockfile
 from boiler import Boiler 
-from pymodbus.client.sync import ModbusSerialClient as ModbusClient
+from pymodbus.client import ModbusSerialClient
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError
 from daemon import DaemonContext
@@ -184,14 +184,14 @@ class DiematicApp:
             try:
                 with FileLock(self.connection_lock):
                     try:
-                        client = ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
+                        client = ModbusSerialClient(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
                         with client:
                             log.info("Going to write")
-                            rr = client.write_registers(address, newvalue, unit=self.MODBUS_UNIT)
+                            rr = client.write_registers(address, newvalue, slave=self.MODBUS_UNIT)
                             if rr.isError():
                                 log.error(rr.message)
                                 raise DiematicModbusError(rr.message)
-                            rr = client.read_holding_registers(address, unit=self.MODBUS_UNIT)
+                            rr = client.read_holding_registers(address, slave=self.MODBUS_UNIT)
                             if rr.isError():
                                 log.error(rr.message)
                                 raise DiematicModbusError(rr.message)
@@ -228,8 +228,7 @@ class DiematicApp:
             self.startWebServer()
 
         if self.args.server == 'both':
-            loop = asyncio.get_event_loop()
-            loop.run_forever()
+            web.run_app(self.webServer, host=self.hostname, port=self.port)
 
     def start_main_program(self):
         x = threading.Thread(target=self.main_program_loop, daemon=True)
@@ -254,23 +253,18 @@ class DiematicApp:
 
         handler = DiematicWebRequestHandler(self.MyBoiler)
 
-        loop = asyncio.get_event_loop()
         self.webServer = web.Application()
         self.webServer["mainapp"] = self
         self.webServer.add_routes(handler.routes)
 
-        runner = web.AppRunner(self.webServer)
-        loop.run_until_complete(runner.setup())
-
         # argument preference is:
         # cli takes preference over config file.
         http = self.cfg.get('http', None)
-        hostname = self.args.hostname if self.hostname_explicit else self.args.hostname if http is None else http.get('hostname', self.args.hostname)
-        port = self.args.port if self.port_explicit else self.args.port if http is None else http.get('port', self.args.port)
-        site = web.TCPSite(runner, hostname, port)
-        loop.run_until_complete(site.start())
+        self.hostname = self.args.hostname if self.hostname_explicit else self.args.hostname if http is None else http.get('hostname', self.args.hostname)
+        self.port = self.args.port if self.port_explicit else self.args.port if http is None else http.get('port', self.args.port)
+
         if self.args.server == 'web':
-            loop.run_forever()
+            web.run_app(self.webServer, self.hostname, self.port)
 
     def check_pending_writes(self):
         self._get_executor().submit(self._value_writer)
@@ -307,7 +301,7 @@ class DiematicApp:
             self.log_modbus_errors = False
         try:
             with FileLock(self.connection_lock):
-                client = ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
+                client = ModbusSerialClient(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
                 with client:
                     self.MyBoiler.registers = []
                     id_stop = -1
@@ -318,7 +312,7 @@ class DiematicApp:
                         id_stop = mbrange[1]
 
                         log.debug("Attempt to read registers from {} to {}".format(id_start, id_stop))
-                        rr = client.read_holding_registers(count=(id_stop-id_start+1), address=id_start, unit=self.MODBUS_UNIT)
+                        rr = client.read_holding_registers(count=(id_stop-id_start+1), address=id_start, slave=self.MODBUS_UNIT)
                         if rr.isError():
                             if self.log_modbus_errors:
                                 log.error(rr.message)
@@ -673,11 +667,11 @@ class DiematicApp:
                     registers = []
                     tryCount += 1
                     try:
-                        client = ModbusClient(method='rtu', port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
+                        client = ModbusSerialClient(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
                         with client:
                             registers.extend([None] * (-1))
                             log.debug("Attempt to read register {}".format(address))
-                            rr = client.read_holding_registers(count=1, address=address, unit=self.MODBUS_UNIT)
+                            rr = client.read_holding_registers(count=1, address=address, slave=self.MODBUS_UNIT)
                             if rr.isError():
                                 log.error(rr.message)
                                 raise DiematicModbusError(rr.message)
