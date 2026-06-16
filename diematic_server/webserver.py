@@ -6,6 +6,7 @@ problems on the client side. Let's see how it works!
 """
 
 import json
+import threading
 from aiohttp import web
 
 # def _parameter_names(boiler) -> list:
@@ -159,25 +160,32 @@ class DiematicWebRequestHandler:
 			}}
 		</script>
 	</head>
-<body>
-	<table class="styled-table">
-		<thead>
-			<tr><th colspan="3">Usage:</th></tr>
-		</thead>
-		<tbody>
-			<tr><td>GET</td><td>{scheme}://{host}/diematic/parameters</td><td><b>returns this page</b></td></tr>
-			<tr><td>GET</td><td>{scheme}://{host}/diematic/parameter/{{name}}</td><td><b>returns json with parameter information</b></td></tr>
-			<tr><td>GET</td><td>{scheme}://{host}/diematic/config</td><td><b>returns boiler configuration parameters</b></td></tr>
-			<tr><td>GET</td><td>{scheme}://{host}/diematic/json</td><td><b>returns all boiler parameters in single json</b></td></tr>
-			<tr><td>POST</td><td>{scheme}://{host}/diematic/parameter/{{name}}</td><td><b>Set a parameter value. The body must be a json of this shape {{"value": XX}}. After the POST, the parameters may take some time to be written to the boiler. Use GET with the parameter name for information about the write operation status.</b></td></tr>
-			<tr><td>POST</td><td>{scheme}://{host}/diematic/parameter/{{name}}/resume</td><td><b>If, for any reason, a write operation fails, a post like this will reset parameter to normal status.</b></td></tr>
-		</tbody>
-	</table>
-	<p>Recognized parameters list</p>
-	<ul>"""
+	<body>
+		<table class="styled-table">
+			<thead>
+				<tr><th colspan="3">Usage:</th></tr>
+			</thead>
+			<tbody>
+				<tr><td>GET</td><td>{scheme}://{host}/diematic/parameters</td><td><b>returns this page</b></td></tr>
+				<tr><td>GET</td><td>{scheme}://{host}/diematic/parameter/{{name}}</td><td><b>returns json with parameter information</b></td></tr>
+				<tr><td>GET</td><td>{scheme}://{host}/diematic/config</td><td><b>returns boiler configuration parameters</b></td></tr>
+				<tr><td>GET</td><td>{scheme}://{host}/diematic/json</td><td><b>returns all boiler parameters in single json</b></td></tr>
+				<tr><td>POST</td><td>{scheme}://{host}/diematic/parameter/{{name}}</td><td><b>Set a parameter value. The body must be a json of this shape {{"value": XX}}. After the POST, the parameters may take some time to be written to the boiler. Use GET with the parameter name for information about the write operation status.</b></td></tr>
+				<tr><td>POST</td><td>{scheme}://{host}/diematic/parameter/{{name}}/resume</td><td><b>If, for any reason, a write operation fails, a post like this will reset parameter to normal status.</b></td></tr>
+			</tbody>
+		</table>
+		<p>Recognized parameters list</p>
+		<ul>"""
 		for name in DiematicWebRequestHandler.parameter_names:
-			document = document + f"<li><a href='/diematic/parameters/{name}'>{name}</a>&nbsp;<button type=\"button\" onclick=\"changeValue(\'{name}\')\">change</button>&nbsp;<button type=\"button\" onclick=\"resumeSetValue(\'{name}\')\">Resume</button></li>\n"
-		document = document + """</ul></body></html>"""
+			document = document + f"""
+			<li>
+				<a href='/diematic/parameters/{name}'>{name}</a>&nbsp;<button type=\"button\" onclick=\"changeValue(\'{name}\')\">change</button>&nbsp;<button type=\"button\" onclick=\"resumeSetValue(\'{name}\')\">Resume</button>
+			</li>
+			"""
+		document = document + f"""
+		</ul>
+	</body>
+</html>"""
 		return web.Response(text=document, content_type='text/html')
 
 	@routes.get('/diematic/parameters/{paramName}')
@@ -224,3 +232,11 @@ class DiematicWebRequestHandler:
 	async def send_config(request):
 		config = request.app["mainapp"].toJSON()
 		return web.json_response(config)
+
+	@routes.get('/diematic/threads')
+	async def send_threads(request):
+		threads = []
+		for thread in threading.enumerate():
+			threads.append(thread.name)
+		return web.json_response(threads)
+
