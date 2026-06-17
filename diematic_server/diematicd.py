@@ -9,6 +9,7 @@ See and respect licensing terms
 """
 import logging
 import json
+from pymodbus.pdu import ModbusPDU
 import yaml
 import os
 import signal
@@ -27,6 +28,8 @@ from daemon import DaemonContext
 from daemon import pidfile
 from aiohttp import web
 from typing import Any
+from argparse import Namespace
+from paho.mqtt.enums import CallbackAPIVersion
 
 import paho.mqtt.client as mqtt
 import asyncio
@@ -107,16 +110,37 @@ class DiematicApp:
     """ Application container """
 
     start_message = "started with pid {pid:d}"
+    args: Namespace
+    hostname_explicit: bool
+    port_explicit: bool
+
+    mqtt_broker_explicit: bool
+    mqtt_tls_explicit: bool
+    mqtt_port_explicit: bool
+    mqtt_ha_discovery_explicit: bool
+    mqtt_ha_discovery_prefix_explicit: bool
+    mqtt_retain_explicit: bool
+    mqtt_topic_explicit: bool
+    mqtt_user_explicit: bool
+    mqtt_password_explicit: bool
+
+    influxdb_host_explicit: bool
+    influxdb_port_explicit: bool
+    influxdb_user_explicit: bool
+    influxdb_password_explicit: bool
+    influxdb_database_explicit: bool
+
+    action: str
 
     def __init__(self):
         # --------------------------------------------------------------------------- #
         # set configuration variables (command line prevails on configuration file)
         # --------------------------------------------------------------------------- #
-        self.MODBUS_TIMEOUT = None
-        self.MODBUS_BAUDRATE = None
-        self.MODBUS_UNIT = None
-        self.MODBUS_DEVICE = None
-        self.connection_lock = None
+        self.MODBUS_TIMEOUT: int | None = None
+        self.MODBUS_BAUDRATE: int | None = None
+        self.MODBUS_UNIT: int | None = None
+        self.MODBUS_DEVICE: str | None = None
+        self.connection_lock: str | None = None
         self.log_modbus_errors = True
 
         self.first_run = True
@@ -147,7 +171,7 @@ class DiematicApp:
                 signal.SIGHUP: self._terminate_daemon_process,
                 signal.SIGUSR1: self._reload_configuration,
                 }
-            self.context.app = self
+            # self.context.app = self
 
             self.pidfile_timeout = 3
             return self.context
@@ -184,10 +208,20 @@ class DiematicApp:
             try:
                 with FileLock(self.connection_lock):
                     try:
+                        if self.MODBUS_BAUDRATE is None or self.MODBUS_DEVICE is None or self.MODBUS_TIMEOUT is None:
+                            errmsg = "Can't write to register {register} address {address} newvalue {newvalue} because modbus parameters are not set".format(register=paramName, address=address, newvalue=newvalue)
+                            self.MyBoiler.write_error(paramName, errmsg)
+                            log.error(errmsg)
+                            return
                         client = ModbusSerialClient(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
                         with client:
+                            if self.MODBUS_UNIT is None:
+                                errmsg = "Can't write to register {register} address {address} newvalue {newvalue} because modbus unit is not set".format(register=paramName, address=address, newvalue=newvalue)
+                                self.MyBoiler.write_error(paramName, errmsg)
+                                log.error(errmsg)
+                                return
                             log.info("Going to write")
-                            rr = client.write_registers(address, newvalue, slave=self.MODBUS_UNIT)
+                            rr: ModbusPDU = client.write_registers(address, [newvalue], slave=self.MODBUS_UNIT)
                             if rr.isError():
                                 log.error(rr.message)
                                 raise DiematicModbusError(rr.message)
@@ -264,7 +298,7 @@ class DiematicApp:
         self.port = self.args.port if self.port_explicit else self.args.port if http is None else http.get('port', self.args.port)
 
         if self.args.server == 'web':
-            web.run_app(self.webServer, self.hostname, self.port)
+            web.run_app(self.webServer, host=self.hostname, port=self.port)
 
     def check_pending_writes(self):
         self._get_executor().submit(self._value_writer)
@@ -300,6 +334,10 @@ class DiematicApp:
         else:
             self.log_modbus_errors = False
         try:
+            if self.MODBUS_BAUDRATE is None or self.MODBUS_DEVICE is None or self.MODBUS_TIMEOUT is None:
+                errmsg = "Can't read registers because modbus parameters are not set"
+                log.error(errmsg)
+                raise DiematicModbusError(errmsg)
             with FileLock(self.connection_lock):
                 client = ModbusSerialClient(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
                 with client:
@@ -312,6 +350,10 @@ class DiematicApp:
                         id_stop = mbrange[1]
 
                         log.debug("Attempt to read registers from {} to {}".format(id_start, id_stop))
+                        if self.MODBUS_UNIT is None:
+                            errmsg = "Can't read registers from {id_start} to {id_stop} because modbus unit is not set".format(id_start=id_start, id_stop=id_stop)
+                            log.error(errmsg)
+                            raise DiematicModbusError(errmsg)
                         rr = client.read_holding_registers(count=(id_stop-id_start+1), address=id_start, slave=self.MODBUS_UNIT)
                         if rr.isError():
                             if self.log_modbus_errors:
@@ -367,30 +409,48 @@ class DiematicApp:
         if self.ha_discovery and not self.shall_run_discovery and time.monotonic() > self.last_time_mqtt_discovery + (15 * 60):
             self.shall_run_discovery = True
         
-        if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured') and self.mqtt_connected:
-            try:
-                if self.mqtt_inform_available:
-                    log.info('Sending online message to mqtt')
-                    if self.force_set_offline:
-                        self.mqttc.publish(topic=self.mqtt_topic_available, payload='offline', qos=0, retain=self.mqtt_retain).wait_for_publish()
-                        self.force_set_offline = False
-                    else:
-                        self.mqttc.publish(topic=self.mqtt_topic_available, payload='online', qos=0, retain=self.mqtt_retain).wait_for_publish()
-                        self.mqtt_inform_available = False
+        if self.args.backend and (self.args.backend == 'mqtt' or self.args.backend == 'configured'):
+            # check possible error conditions and try to reconnect if needed
+            if not self._is_mqtt_thread_running():
+                log.error('MQTT thread is not running, trying to reconnect')
+                self.mqtt_started = False
+                self.mqtt_loop_started = False
+                self.mqtt_connected = False
+                self.mqtt_connecting = False
+                self.mqtt_client()
+                self.mqtt_connect()
 
-                if self.ha_discovery and self.shall_run_discovery:
-                    self.home_assistant_discovery(data)
-                    self.shall_run_discovery = False
-                    log.info('Sending discovery info')
-                    self.last_time_mqtt_discovery = time.monotonic()
-                    time.sleep(0.3)
-                mqtt_json_body = json.dumps(data, indent=2)
-                self.mqttc.publish(topic=self.mqtt_topic, payload=mqtt_json_body, qos=0, retain=self.mqtt_retain).wait_for_publish()
-                log.info('Values published to mqtt')
-            except RuntimeError as e:
-                log.error('Can\'t publish due to RuntimeError: {err}'.format(err=e))
-            except ValueError as e:
-                log.error('Can\'t publish due to ValueError: {err}'.format(err=e))
+            if self.mqtt_connected:
+                try:
+                    if self.mqtt_inform_available:
+                        log.info('Sending online message to mqtt')
+                        if self.force_set_offline:
+                            self.mqttc.publish(topic=self.mqtt_topic_available, payload='offline', qos=0, retain=self.mqtt_retain).wait_for_publish()
+                            self.force_set_offline = False
+                        else:
+                            self.mqttc.publish(topic=self.mqtt_topic_available, payload='online', qos=0, retain=self.mqtt_retain).wait_for_publish()
+                            self.mqtt_inform_available = False
+
+                    if self.ha_discovery and self.shall_run_discovery:
+                        self.home_assistant_discovery(data)
+                        self.shall_run_discovery = False
+                        log.info('Sending discovery info')
+                        self.last_time_mqtt_discovery = time.monotonic()
+                        time.sleep(0.3)
+                    mqtt_json_body = json.dumps(data, indent=2)
+                    self.mqttc.publish(topic=self.mqtt_topic, payload=mqtt_json_body, qos=0, retain=self.mqtt_retain).wait_for_publish()
+                    log.info('Values published to mqtt')
+                except RuntimeError as e:
+                    log.error('Can\'t publish due to RuntimeError: {err}'.format(err=e))
+                except ValueError as e:
+                    log.error('Can\'t publish due to ValueError: {err}'.format(err=e))
+
+    def _is_mqtt_thread_running(self) -> bool:
+        """ Returns True if the mqtt thread is running, False otherwise """
+        for thread in threading.enumerate():
+            if thread.name.startswith("paho-mqtt-client"):
+                return True
+        return False
 
     def _mqtt_device_keys(self) -> tuple[str, str]:
         """
@@ -401,7 +461,7 @@ class DiematicApp:
             confkey = self.cfg['mqtt']['discovery']
             prefix = confkey.get('prefix','homeassistant')
         uuid = self.cfg['boiler']['uuid'].replace('-','')
-        return [prefix, uuid]
+        return (prefix, uuid)
 
     def _mqtt_topic_header(self, component: str, object_id: str) -> str:
         prefix, uuid = self._mqtt_device_keys()
@@ -475,11 +535,11 @@ class DiematicApp:
 
     def ha_discover(self, prefix:str, uuid:str, model: str, sw_version: str,
         qos: int, subtopic: str, device_name: str, component: str, object_id: str, 
-        entity_category: str, icon: str, device_class: str = None, state_class: str = None, 
-        unit: str = None, min: float = None, max: float = None, step: float = None, 
-        value_template: str = None, command_template: str = None,
-        options: list[str] = None, suggested_display_precision: int = None,
-        payload_on: str = None, payload_off: str = None
+        entity_category: str, icon: str, device_class: str | None = None, state_class: str | None = None, 
+        unit: str | None = None, min: float | None = None, max: float | None = None, step: float | None = None, 
+        value_template: str | None = None, command_template: str | None = None,
+        options: list[str] | None = None, suggested_display_precision: int | None = None,
+        payload_on: str | None = None, payload_off: str | None = None
     ):
         entity_name = self.MyBoiler.get_register_field(object_id, 'desc')
         topic_head = f'{prefix}/{component}/{uuid}/{object_id}'
@@ -667,10 +727,18 @@ class DiematicApp:
                     registers = []
                     tryCount += 1
                     try:
+                        if self.MODBUS_BAUDRATE is None or self.MODBUS_DEVICE is None or self.MODBUS_TIMEOUT is None:
+                            errmsg = "Can't read register {address} because modbus parameters are not set".format(address=address)
+                            log.error(errmsg)
+                            raise DiematicModbusError(errmsg)
                         client = ModbusSerialClient(port=self.MODBUS_DEVICE, timeout=self.MODBUS_TIMEOUT, baudrate=self.MODBUS_BAUDRATE)
                         with client:
                             registers.extend([None] * (-1))
                             log.debug("Attempt to read register {}".format(address))
+                            if self.MODBUS_UNIT is None:
+                                errmsg = "Can't read register {address} because modbus unit is not set".format(address=address)
+                                log.error(errmsg)
+                                raise DiematicModbusError(errmsg)
                             rr = client.read_holding_registers(count=1, address=address, slave=self.MODBUS_UNIT)
                             if rr.isError():
                                 log.error(rr.message)
@@ -799,6 +867,8 @@ class DiematicApp:
         log.info("Reloading configuration")
         if self.args.device:
             self.MODBUS_DEVICE = self.args.device
+            if self.MODBUS_DEVICE is None:
+                raise ValueError('Modbus device not set')
             self.connection_lock = self.MODBUS_DEVICE[self.MODBUS_DEVICE.rindex('/')+1:]
 
         self.read_config_file()
@@ -812,6 +882,8 @@ class DiematicApp:
                 self.MODBUS_UNIT = self.cfg['modbus']['unit']
             if isinstance(self.cfg['modbus']['device'], str):
                 self.MODBUS_DEVICE = self.cfg['modbus']['device']
+                if self.MODBUS_DEVICE is None:
+                    raise ValueError('Modbus device not set')
                 self.connection_lock = self.MODBUS_DEVICE[self.MODBUS_DEVICE.rindex('/')+1:]
         if self.MODBUS_TIMEOUT is None:
             self.MODBUS_TIMEOUT = DEFAULT_MODBUS_TIMEOUT
@@ -857,7 +929,7 @@ class DiematicApp:
                     self.mqttc.loop_stop()
                     self.mqtt_loop_started = False
                 self.mqtt_connected = False
-                client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, client_id=f"diematicd_{self.cfg['boiler']['uuid']}", protocol=mqtt.MQTTv5)
+                client = mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2, client_id=f"diematicd_{self.cfg['boiler']['uuid']}", protocol=mqtt.MQTTv5)
                 self.mqttc = client
                 client.on_connect = self.on_mqtt_connect
                 client.on_disconnect = self.on_mqtt_disconnect
@@ -889,7 +961,7 @@ class DiematicApp:
                 broker = self.args.mqtt_broker if self.mqtt_broker_explicit else (mqttk.get('broker', None) if mqtt is not None else None)
                 port = self.args.mqtt_port if self.mqtt_port_explicit else mqttk.get('port', 8883 if tls else 1883) if mqttk is not None else 8883 if tls else 1883
                 connection = self.mqttc.connect(broker, port, 60, clean_start=True) if broker is not None and port is not None else 'Connection parameters are missing'
-                if connection != mqtt.MQTTErrorCode.MQTT_ERR_SUCCESS:
+                if connection != mqtt.MQTT_ERR_SUCCESS:
                     log.error(f'Can\'t connect to mqtt broker, error code is {connection}')
             except Exception as e:
                 log.error('mqtt found in configuration file but connection raised the following error: {err}'.format(err=e))
@@ -1034,7 +1106,7 @@ def _usage_exit(parser):
     # emit_message(message)
     sys.exit(usage_exit_code)
 
-def parse_args(app, argv=None):
+def parse_args(app: DiematicApp, argv=None):
     """ Parse command-line arguments.
 
         :param argv: The command-line arguments used to invoke the
